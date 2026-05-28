@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html class="h-full" lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta content="width=device-width, initial-scale=1.0" name="viewport">
+    <title>M7 // TASK-DIRECTOR</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+          theme: {
+            extend: {
+              colors: {
+                'm7-black': '#0a0a0a',
+                'm7-dark-gray': '#141414',
+                'm7-gray': '#2a2a2a',
+                'm7-neon': '#00ff7f',
+                'm7-border': '#222222'
+              },
+              fontFamily: { mono: ['JetBrains Mono', 'monospace'] }
+            }
+          }
+        }
+    </script>
+    <style>
+        body { background-color: #0a0a0a; color: #e5e7eb; font-family: 'JetBrains Mono', monospace; }
+        .bg-dots { background-image: radial-gradient(#1a1a1a 1px, transparent 1px); background-size: 20px 20px; }
+        .border-m7 { border: 1px solid #222222; }
+    </style>
+</head>
+<body class="h-full overflow-hidden flex flex-col">
+
+    <div class="flex flex-1 overflow-hidden">
+        <aside class="w-64 border-r border-m7 flex flex-col bg-m7-black">
+            <nav class="flex-1 py-8">
+                <ul class="space-y-1">
+                    <li>
+                        <a class="flex items-center space-x-3 px-8 py-4 bg-m7-neon text-black font-bold" href="#">
+                            <span>DASHBOARD</span>
+                        </a>
+                    </li>
+                </ul>
+            </nav>
+        </aside>
+
+        <main class="flex-1 bg-dots relative flex flex-col p-8 overflow-y-auto">
+            
+            <section class="mb-10">
+                <div class="border-m7 p-6 bg-m7-black/50 backdrop-blur-sm">
+                    <label class="block text-xs text-gray-500 mb-2 uppercase tracking-widest">Input New Protocol</label>
+                    <div class="flex gap-4">
+                        <input id="task-input" class="flex-1 bg-transparent border-m7 text-m7-neon placeholder:text-gray-700 focus:ring-1 focus:ring-m7-neon focus:border-m7-neon px-4 py-3 text-sm" placeholder="ENTER PROTOCOL SEQUENCE..." type="text">
+                        <button onclick="createNewTask()" class="bg-m7-neon text-black px-6 py-3 font-bold flex items-center gap-2 hover:bg-m7-neon/90 transition-all text-xs tracking-widest">
+                            INITIATE
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 flex-1">
+                
+                <section class="flex flex-col border-m7 p-4 bg-m7-black/30">
+                    <header class="flex justify-between items-center mb-6">
+                        <div class="flex items-center gap-2">
+                            <span class="w-3 h-3 bg-cyan-400"></span>
+                            <h3 class="font-bold text-sm tracking-widest uppercase">Backlog</h3>
+                        </div>
+                    </header>
+                    <div class="space-y-4 min-h-[400px]" id="backlog-container" ondragover="handleDragOver(event)" ondrop="handleDrop(event, 'backlog')"></div>
+                </section>
+
+                <section class="flex flex-col border-m7 p-4 bg-m7-black/30">
+                    <header class="flex justify-between items-center mb-6">
+                        <div class="flex items-center gap-2">
+                            <span class="w-3 h-3 bg-m7-neon"></span>
+                            <h3 class="font-bold text-sm tracking-widest uppercase">In Progress</h3>
+                        </div>
+                    </header>
+                    <div class="space-y-4 min-h-[400px]" id="inprogress-container" ondragover="handleDragOver(event)" ondrop="handleDrop(event, 'in-progress')"></div>
+                </section>
+
+                <section class="flex flex-col border-m7 p-4 bg-m7-black/30">
+                    <header class="flex justify-between items-center mb-6">
+                        <div class="flex items-center gap-2">
+                            <span class="w-3 h-3 bg-gray-500"></span>
+                            <h3 class="font-bold text-sm tracking-widest uppercase">Done</h3>
+                        </div>
+                    </header>
+                    <div class="space-y-4 min-h-[400px] opacity-50" id="done-container" ondragover="handleDragOver(event)" ondrop="handleDrop(event, 'done')"></div>
+                </section>
+
+            </div>
+        </main>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
