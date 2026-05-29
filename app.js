@@ -26,9 +26,11 @@ async function supabase(method, path, body = null) {
     return text ? JSON.parse(text) : [];
 }
 
-// 1. LOAD ALL TASKS FROM DATABASE
+// 1. IN-MEMORY STATE (keeps UI instant)
+let taskState = [];
+
 async function loadTasks() {
-    return await supabase('GET', 'tasks?order=task_number.asc');
+    taskState = await supabase('GET', 'tasks?order=task_number.asc');
 }
 
 // 2. RENDERING
@@ -75,41 +77,43 @@ function renderBoard(tasks) {
 }
 
 async function refreshBoard() {
-    const tasks = await loadTasks();
-    renderBoard(tasks);
+    await loadTasks();
+    renderBoard(taskState);
 }
 
 // 3. CORE ACTIONS
 async function moveTask(taskId, currentStatus) {
     const next = { backlog: 'in-progress', 'in-progress': 'done', done: 'backlog' };
-    await supabase('PATCH', `tasks?id=eq.${encodeURIComponent(taskId)}`, { status: next[currentStatus] });
-    await refreshBoard();
+    const newStatus = next[currentStatus];
+    const task = taskState.find(t => t.id === taskId);
+    if (task) { task.status = newStatus; renderBoard(taskState); }
+    supabase('PATCH', `tasks?id=eq.${encodeURIComponent(taskId)}`, { status: newStatus });
 }
 
 async function deleteTask(taskId) {
-    await supabase('DELETE', `tasks?id=eq.${encodeURIComponent(taskId)}`);
-    await refreshBoard();
+    taskState = taskState.filter(t => t.id !== taskId);
+    renderBoard(taskState);
+    supabase('DELETE', `tasks?id=eq.${encodeURIComponent(taskId)}`);
 }
 
 async function createNewTask() {
     const inputElement = document.getElementById('task-input');
     const taskText = inputElement.value.trim();
-
-    if (taskText === '') {
-        alert('CRITICAL WARNING // INPUT SEQUENCE EMPTY.');
-        return;
-    }
+    if (taskText === '') return;
 
     const generatedId = crypto.randomUUID();
+    const tempTask = { id: generatedId, description: taskText.toUpperCase(), status: 'backlog', task_number: '...' };
+    taskState.push(tempTask);
+    renderBoard(taskState);
+    inputElement.value = '';
+    document.getElementById('create-btn').disabled = true;
 
-    await supabase('POST', 'tasks', {
+    const created = await supabase('POST', 'tasks', {
         id: generatedId,
-        description: taskText.toUpperCase(),
+        description: tempTask.description,
         status: 'backlog'
     });
-
-    inputElement.value = '';
-    await refreshBoard();
+    if (created[0]) { tempTask.task_number = created[0].task_number; renderBoard(taskState); }
 }
 
 // 4. DRAG AND DROP
@@ -126,29 +130,28 @@ function handleDragOver(event) {
     event.preventDefault();
 }
 
-async function handleDrop(event, targetStatus) {
-    event.preventDefault();
-    const taskId = event.dataTransfer.getData('text/plain');
-    if (!taskId) return;
-    await supabase('PATCH', `tasks?id=eq.${encodeURIComponent(taskId)}`, { status: targetStatus });
-    await refreshBoard();
+function applyDrop(taskId, targetStatus) {
+    const task = taskState.find(t => t.id === taskId);
+    if (task) { task.status = targetStatus; renderBoard(taskState); }
+    supabase('PATCH', `tasks?id=eq.${encodeURIComponent(taskId)}`, { status: targetStatus });
 }
 
-async function handleCardDrop(event) {
+function handleDrop(event, targetStatus) {
+    event.preventDefault();
+    const taskId = event.dataTransfer.getData('text/plain');
+    if (taskId) applyDrop(taskId, targetStatus);
+}
+
+function handleCardDrop(event) {
     event.preventDefault();
     event.stopPropagation();
     const taskId = event.dataTransfer.getData('text/plain');
     if (!taskId) return;
     const container = event.currentTarget.closest('[data-status]');
-    if (container) {
-        await supabase('PATCH', `tasks?id=eq.${encodeURIComponent(taskId)}`, { status: container.dataset.status });
-        await refreshBoard();
-    }
+    if (container) applyDrop(taskId, container.dataset.status);
 }
 
 // 5. INIT
 window.onload = async () => {
-    console.log('M7 SECURE LOGS // CONNECTING TO DATABASE...');
     await refreshBoard();
-    console.log('M7 SECURE LOGS // ALL SYSTEMS INITIALIZED.');
 };
