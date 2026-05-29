@@ -43,21 +43,23 @@ function renderBoard(tasks) {
 
     tasks.forEach(task => {
         const moveButton = task.status !== 'done'
-            ? `<button class="flex-1 bg-m7-gray text-[10px] py-2 uppercase hover:bg-gray-700" onclick="moveTask('${task.id}', '${task.status}')">Move</button>`
+            ? `<button draggable="false" class="flex-1 bg-m7-gray text-[10px] py-2 uppercase hover:bg-gray-700" onclick="moveTask('${task.id}', '${task.status}')">Move</button>`
             : '';
 
         const cardHTML = `
             <div class="task-card border-m7 p-4 bg-m7-dark-gray hover:border-gray-500 transition-colors cursor-grab active:cursor-grabbing"
                  draggable="true"
                  ondragstart="handleDragStart(event, '${task.id}')"
-                 ondragend="handleDragEnd(event)">
+                 ondragend="handleDragEnd(event)"
+                 ondragover="handleDragOver(event)"
+                 ondrop="handleCardDrop(event)">
                 <div class="flex justify-between text-[10px] text-gray-500 mb-3">
                     <span>#${task.task_number}</span>
                 </div>
                 <p class="text-xs font-bold mb-4 tracking-tighter">${task.description}</p>
                 <div class="flex gap-2">
                     ${moveButton}
-                    <button class="p-2 bg-m7-dark-gray hover:bg-red-900/20 transition-colors border border-red-500" onclick="deleteTask('${task.id}')">
+                    <button draggable="false" class="p-2 bg-m7-dark-gray hover:bg-red-900/20 transition-colors border border-red-500" onclick="deleteTask('${task.id}')">
                         <svg class="h-4 w-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
                         </svg>
@@ -79,9 +81,14 @@ async function refreshBoard() {
 
 // 3. CORE ACTIONS
 async function moveTask(taskId, currentStatus) {
-    const next = { backlog: 'in-progress', 'in-progress': 'done', done: 'backlog' };
-    await supabase('PATCH', `tasks?id=eq.${taskId}`, { status: next[currentStatus] });
-    await refreshBoard();
+    try {
+        const next = { backlog: 'in-progress', 'in-progress': 'done', done: 'backlog' };
+        console.log('moveTask called', taskId, currentStatus, '->', next[currentStatus]);
+        await supabase('PATCH', `tasks?id=eq.${taskId}`, { status: next[currentStatus] });
+        await refreshBoard();
+    } catch (e) {
+        console.error('moveTask failed:', e.message);
+    }
 }
 
 async function deleteTask(taskId) {
@@ -113,13 +120,11 @@ async function createNewTask() {
 // 4. DRAG AND DROP
 function handleDragStart(event, taskId) {
     event.dataTransfer.setData('text/plain', taskId);
-    document.body.classList.add('dragging');
     setTimeout(() => { event.target.style.opacity = '0'; }, 0);
 }
 
 function handleDragEnd(event) {
     event.target.style.opacity = '1';
-    document.body.classList.remove('dragging');
 }
 
 function handleDragOver(event) {
@@ -129,8 +134,21 @@ function handleDragOver(event) {
 async function handleDrop(event, targetStatus) {
     event.preventDefault();
     const taskId = event.dataTransfer.getData('text/plain');
+    if (!taskId) return;
     await supabase('PATCH', `tasks?id=eq.${taskId}`, { status: targetStatus });
     await refreshBoard();
+}
+
+async function handleCardDrop(event) {
+    event.preventDefault();
+    event.stopPropagation();
+    const taskId = event.dataTransfer.getData('text/plain');
+    if (!taskId) return;
+    const container = event.currentTarget.closest('[data-status]');
+    if (container) {
+        await supabase('PATCH', `tasks?id=eq.${taskId}`, { status: container.dataset.status });
+        await refreshBoard();
+    }
 }
 
 // 5. INIT
