@@ -81,18 +81,13 @@ async function refreshBoard() {
 
 // 3. CORE ACTIONS
 async function moveTask(taskId, currentStatus) {
-    try {
-        const next = { backlog: 'in-progress', 'in-progress': 'done', done: 'backlog' };
-        console.log('moveTask called', taskId, currentStatus, '->', next[currentStatus]);
-        await supabase('PATCH', `tasks?id=eq.${taskId}`, { status: next[currentStatus] });
-        await refreshBoard();
-    } catch (e) {
-        console.error('moveTask failed:', e.message);
-    }
+    const next = { backlog: 'in-progress', 'in-progress': 'done', done: 'backlog' };
+    await supabase('PATCH', `tasks?id=eq.${encodeURIComponent(taskId)}`, { status: next[currentStatus] });
+    await refreshBoard();
 }
 
 async function deleteTask(taskId) {
-    await supabase('DELETE', `tasks?id=eq.${taskId}`);
+    await supabase('DELETE', `tasks?id=eq.${encodeURIComponent(taskId)}`);
     await refreshBoard();
 }
 
@@ -135,7 +130,7 @@ async function handleDrop(event, targetStatus) {
     event.preventDefault();
     const taskId = event.dataTransfer.getData('text/plain');
     if (!taskId) return;
-    await supabase('PATCH', `tasks?id=eq.${taskId}`, { status: targetStatus });
+    await supabase('PATCH', `tasks?id=eq.${encodeURIComponent(taskId)}`, { status: targetStatus });
     await refreshBoard();
 }
 
@@ -146,7 +141,7 @@ async function handleCardDrop(event) {
     if (!taskId) return;
     const container = event.currentTarget.closest('[data-status]');
     if (container) {
-        await supabase('PATCH', `tasks?id=eq.${taskId}`, { status: container.dataset.status });
+        await supabase('PATCH', `tasks?id=eq.${encodeURIComponent(taskId)}`, { status: container.dataset.status });
         await refreshBoard();
     }
 }
