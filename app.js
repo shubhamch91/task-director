@@ -28,7 +28,7 @@ async function supabase(method, path, body = null) {
 
 // 1. LOAD ALL TASKS FROM DATABASE
 async function loadTasks() {
-    return await supabase('GET', 'tasks?order=created_at.asc');
+    return await supabase('GET', 'tasks?order=task_number.asc');
 }
 
 // 2. RENDERING
@@ -47,7 +47,7 @@ function renderBoard(tasks) {
                  draggable="true"
                  ondragstart="handleDragStart(event, '${task.id}')">
                 <div class="flex justify-between text-[10px] text-gray-500 mb-3">
-                    <span>${task.id}</span>
+                    <span>#${task.task_number}</span>
                 </div>
                 <p class="text-xs font-bold mb-4 tracking-tighter">${task.description}</p>
                 <div class="flex gap-2">
@@ -93,9 +93,7 @@ async function createNewTask() {
         return;
     }
 
-    const randomNumber = Math.floor(100 + Math.random() * 900);
-    const randomLetter = 'ABCXYZ'.charAt(Math.floor(Math.random() * 6));
-    const generatedId = `#${randomNumber}-${randomLetter}`;
+    const generatedId = crypto.randomUUID();
 
     await supabase('POST', 'tasks', {
         id: generatedId,
