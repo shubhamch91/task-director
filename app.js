@@ -45,7 +45,10 @@ function renderBoard(tasks) {
         const cardHTML = `
             <div class="border-m7 p-4 bg-m7-dark-gray hover:border-gray-500 transition-colors cursor-grab active:cursor-grabbing"
                  draggable="true"
-                 ondragstart="handleDragStart(event, '${task.id}')">
+                 ondragstart="handleDragStart(event, '${task.id}')"
+                 ondragend="handleDragEnd(event)"
+                 ondragover="handleDragOver(event)"
+                 ondrop="handleDropOnCard(event)">
                 <div class="flex justify-between text-[10px] text-gray-500 mb-3">
                     <span>#${task.task_number}</span>
                 </div>
@@ -108,6 +111,11 @@ async function createNewTask() {
 // 4. DRAG AND DROP
 function handleDragStart(event, taskId) {
     event.dataTransfer.setData('text/plain', taskId);
+    setTimeout(() => { event.target.style.opacity = '0'; }, 0);
+}
+
+function handleDragEnd(event) {
+    event.target.style.opacity = '1';
 }
 
 function handleDragOver(event) {
@@ -116,9 +124,21 @@ function handleDragOver(event) {
 
 async function handleDrop(event, targetStatus) {
     event.preventDefault();
+    event.stopPropagation();
     const taskId = event.dataTransfer.getData('text/plain');
     await supabase('PATCH', `tasks?id=eq.${taskId}`, { status: targetStatus });
     await refreshBoard();
+}
+
+async function handleDropOnCard(event) {
+    event.preventDefault();
+    event.stopPropagation();
+    const taskId = event.dataTransfer.getData('text/plain');
+    const container = event.currentTarget.closest('[data-status]');
+    if (container) {
+        await supabase('PATCH', `tasks?id=eq.${taskId}`, { status: container.dataset.status });
+        await refreshBoard();
+    }
 }
 
 // 5. INIT
