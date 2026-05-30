@@ -160,8 +160,8 @@ function renderMobile(tasks) {
                             onkeydown="if(event.key==='Enter'){event.preventDefault();saveInlineEdit('${task.id}');}else if(event.key==='Escape')cancelInlineEdit()">
                     </div>
                     <div style="display: flex; gap: 8px;">
-                        <button class="mob-btn-move" style="background: #00ff7f; color: #000;" ontouchend="if(!isTap(event))return; event.preventDefault(); saveInlineEdit('${task.id}')" onclick="saveInlineEdit('${task.id}')">SAVE</button>
-                        <button class="mob-btn-del" style="border-color: #4b5563; color: #4b5563;" ontouchend="if(!isTap(event))return; event.preventDefault(); cancelInlineEdit()" onclick="cancelInlineEdit()">
+                        <button class="mob-btn-move" style="background: #00ff7f; color: #000;" ontouchend="event.preventDefault(); if(isTap(event)) saveInlineEdit('${task.id}')">SAVE</button>
+                        <button class="mob-btn-del" style="border-color: #4b5563; color: #4b5563;" ontouchend="event.preventDefault(); if(isTap(event)) cancelInlineEdit()">
                             <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg>
                         </button>
                     </div>
@@ -177,9 +177,9 @@ function renderMobile(tasks) {
                     <div style="font-size: 10px; color: #6b7280; margin-bottom: 12px;">#${num}</div>
                     <div style="font-size: 13px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.45; color: #e5e7eb; margin-bottom: 14px;">${task.description}</div>
                     <div style="display: flex; gap: 8px;">
-                        <button class="${moveClass}" ontouchend="if(!isTap(event))return; event.preventDefault(); moveTask('${task.id}', '${task.status}')" onclick="moveTask('${task.id}', '${task.status}')">${moveLabel} ${moveArrow}</button>
-                        <button class="mob-btn-edit" ontouchend="if(!isTap(event))return; event.preventDefault(); enterInlineEdit('${task.id}')" onclick="enterInlineEdit('${task.id}')">${EDIT_ICON}</button>
-                        <button class="mob-btn-del" ontouchend="if(!isTap(event))return; event.preventDefault(); deleteTask('${task.id}')" onclick="deleteTask('${task.id}')">${TRASH_ICON}</button>
+                        <button class="${moveClass}" ontouchend="event.preventDefault(); if(isTap(event)) moveTask('${task.id}', '${task.status}')">${moveLabel} ${moveArrow}</button>
+                        <button class="mob-btn-edit" ontouchend="event.preventDefault(); if(isTap(event)) enterInlineEdit('${task.id}')">${EDIT_ICON}</button>
+                        <button class="mob-btn-del" ontouchend="event.preventDefault(); if(isTap(event)) deleteTask('${task.id}')">${TRASH_ICON}</button>
                     </div>
                 </div>`;
         }
