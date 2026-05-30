@@ -27,13 +27,14 @@ async function supabase(method, path, body = null) {
 }
 
 // 1. IN-MEMORY STATE
+const DB_TABLE = 'tasks';
 let taskState = [];
 let editingTaskId = null;
 let editDraft = '';
 let lastDroppedId = null;
 
 async function loadTasks() {
-    taskState = await supabase('GET', 'tasks?order=task_number.asc');
+    taskState = await supabase('GET', `${DB_TABLE}?order=task_number.asc`);
 }
 
 // 2. RENDER BOTH VIEWS
@@ -252,7 +253,7 @@ async function saveInlineEdit(taskId) {
     editingTaskId = null;
     editDraft = '';
     render();
-    supabase('PATCH', `tasks?id=eq.${encodeURIComponent(taskId)}`, { description: task.description });
+    supabase('PATCH', `${DB_TABLE}?id=eq.${encodeURIComponent(taskId)}`, { description: task.description });
 }
 
 async function moveTask(taskId, currentStatus) {
@@ -260,13 +261,13 @@ async function moveTask(taskId, currentStatus) {
     const newStatus = next[currentStatus];
     const task = taskState.find(t => t.id === taskId);
     if (task) { task.status = newStatus; render(); }
-    supabase('PATCH', `tasks?id=eq.${encodeURIComponent(taskId)}`, { status: newStatus });
+    supabase('PATCH', `${DB_TABLE}?id=eq.${encodeURIComponent(taskId)}`, { status: newStatus });
 }
 
 async function deleteTask(taskId) {
     taskState = taskState.filter(t => t.id !== taskId);
     render();
-    supabase('DELETE', `tasks?id=eq.${encodeURIComponent(taskId)}`);
+    supabase('DELETE', `${DB_TABLE}?id=eq.${encodeURIComponent(taskId)}`);
 }
 
 async function createNewTask() {
@@ -279,7 +280,7 @@ async function createNewTask() {
     render();
     inputElement.value = '';
     document.getElementById('create-btn').disabled = true;
-    const created = await supabase('POST', 'tasks', { id: generatedId, description: tempTask.description, status: 'backlog' });
+    const created = await supabase('POST', DB_TABLE, { id: generatedId, description: tempTask.description, status: 'backlog' });
     if (created[0]) { tempTask.task_number = created[0].task_number; render(); }
 }
 
@@ -295,7 +296,7 @@ async function createNewTaskMobile() {
     document.getElementById('mobile-create-btn').disabled = true;
     closeSheet();
     scrollToColumn(0); // jump to backlog
-    const created = await supabase('POST', 'tasks', { id: generatedId, description: tempTask.description, status: 'backlog' });
+    const created = await supabase('POST', DB_TABLE, { id: generatedId, description: tempTask.description, status: 'backlog' });
     if (created[0]) { tempTask.task_number = created[0].task_number; render(); }
 }
 
@@ -330,7 +331,7 @@ function applyDrop(taskId, targetStatus, dropY) {
     }
 
     setTimeout(() => { lastDroppedId = null; }, 300);
-    supabase('PATCH', `tasks?id=eq.${encodeURIComponent(taskId)}`, { status: targetStatus });
+    supabase('PATCH', `${DB_TABLE}?id=eq.${encodeURIComponent(taskId)}`, { status: targetStatus });
 }
 function handleDrop(event, targetStatus) {
     event.preventDefault();
