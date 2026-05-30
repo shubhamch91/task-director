@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html class="h-full" lang="en">
+<html lang="en">
 <head>
     <meta charset="utf-8">
     <meta content="width=device-width, initial-scale=1.0" name="viewport">
@@ -23,13 +23,41 @@
         }
     </script>
     <style>
-        body { background-color: #0a0a0a; color: #e5e7eb; font-family: 'JetBrains Mono', monospace; }
+        * { box-sizing: border-box; }
+        body { background-color: #0a0a0a; color: #e5e7eb; font-family: 'JetBrains Mono', monospace; margin: 0; }
         .bg-dots { background-image: radial-gradient(#1a1a1a 1px, transparent 1px); background-size: 20px 20px; }
         .border-m7 { border: 1px solid #222222; }
+
+        /* ===== MOBILE ===== */
+        #mobile-board,
+        #mobile-board .mobile-page { scrollbar-width: none; }
+        #mobile-board::-webkit-scrollbar,
+        #mobile-board .mobile-page::-webkit-scrollbar { display: none; }
+
+        #create-sheet-root { pointer-events: none; }
+        #create-sheet-root.is-open { pointer-events: auto; }
+        #create-scrim { opacity: 0; transition: opacity 0.22s; }
+        #create-sheet-root.is-open #create-scrim { opacity: 1; }
+        #create-sheet { transform: translateY(110%); transition: transform 0.26s cubic-bezier(.2,.8,.2,1); }
+        #create-sheet-root.is-open #create-sheet { transform: translateY(0); }
+
+        #mobile-create-btn:not(:disabled) { opacity: 1; cursor: pointer; }
+        #mobile-create-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+        #mobile-create-btn:not(:disabled):active { background: rgba(0,255,127,0.85); }
+
+        .mob-btn-move { flex: 1; min-height: 44px; background: #2a2a2a; color: #e5e7eb; border: none; cursor: pointer; font-family: inherit; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; display: flex; align-items: center; justify-content: center; gap: 8px; }
+        .mob-btn-move:active { background: #374151; }
+        .mob-btn-move.is-reset { color: #6b7280; }
+        .mob-btn-del { width: 44px; min-height: 44px; flex: none; background: #141414; border: 1px solid #ef4444; color: #ef4444; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+        .mob-btn-del:active { background: rgba(127,29,29,0.25); }
     </style>
 </head>
-<body class="h-full overflow-hidden flex flex-col">
+<body>
 
+<!-- ===================================================
+     DESKTOP VIEW (hidden on mobile)
+     =================================================== -->
+<div id="desktop-view" class="hidden lg:flex h-screen overflow-hidden flex-col">
     <div class="flex flex-1 overflow-hidden">
         <aside class="w-64 border-r border-m7 flex flex-col bg-m7-black">
             <nav class="flex-1 py-8">
@@ -44,7 +72,6 @@
         </aside>
 
         <main class="flex-1 bg-dots relative flex flex-col p-8 overflow-y-auto">
-            
             <section class="mb-10">
                 <div class="border-m7 p-6 bg-m7-black/50 backdrop-blur-sm">
                     <label class="block text-xs text-gray-500 mb-2 uppercase tracking-widest">Input New Protocol</label>
@@ -58,7 +85,6 @@
             </section>
 
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 flex-1">
-                
                 <section class="flex flex-col border-m7 p-4 bg-m7-black/30">
                     <header class="flex justify-between items-center mb-6">
                         <div class="flex items-center gap-2">
@@ -88,11 +114,129 @@
                     </header>
                     <div class="space-y-4 min-h-[400px] opacity-50" id="done-container" data-status="done" ondragover="handleDragOver(event)" ondrop="handleDrop(event, 'done')"></div>
                 </section>
-
             </div>
         </main>
     </div>
+</div>
 
-    <script src="app.js"></script>
+<!-- ===================================================
+     MOBILE VIEW (hidden on desktop)
+     =================================================== -->
+<div id="mobile-view" class="lg:hidden flex flex-col bg-dots" style="height: 100dvh; overflow: hidden; position: relative; background-color: #0a0a0a;">
+
+    <!-- Status bar -->
+    <div style="flex: none; height: 36px; display: flex; align-items: center; justify-content: space-between; padding: 0 18px; border-bottom: 1px solid #222; background: rgba(10,10,10,0.85);">
+        <span id="mob-time" style="font-size: 11px; font-weight: 700; color: #e5e7eb; letter-spacing: 0.04em;"></span>
+        <span id="mob-date" style="font-size: 10px; color: #6b7280; letter-spacing: 0.14em; white-space: nowrap;"></span>
+    </div>
+
+    <!-- Header / readout -->
+    <div style="flex: none; padding: 14px 18px 14px; border-bottom: 1px solid #222;">
+        <div style="font-size: 13px; font-weight: 700; letter-spacing: 0.02em; white-space: nowrap; margin-bottom: 14px; color: #e5e7eb;">TASK DIRECTOR</div>
+
+        <!-- Distribution bar -->
+        <div id="mob-dist" style="display: flex; gap: 3px; height: 8px; margin-bottom: 12px;"></div>
+
+        <!-- Stat buttons -->
+        <div style="display: flex;">
+            <button onclick="scrollToColumn(0)" id="mob-stat-0" style="flex: 1; background: none; border: none; border-right: 1px solid #222; cursor: pointer; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 4px 0 0; font-family: inherit; opacity: 0.55; transition: opacity 0.2s;">
+                <span style="font-size: 26px; font-weight: 700; line-height: 1; letter-spacing: -0.03em; color: #22d3ee;" id="mob-count-0">00</span>
+                <span style="font-size: 9px; color: #6b7280; letter-spacing: 0.12em;">BACKLOG</span>
+            </button>
+            <button onclick="scrollToColumn(1)" id="mob-stat-1" style="flex: 1; background: none; border: none; border-right: 1px solid #222; cursor: pointer; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 4px 0 0 14px; font-family: inherit; opacity: 0.55; transition: opacity 0.2s;">
+                <span style="font-size: 26px; font-weight: 700; line-height: 1; letter-spacing: -0.03em; color: #00ff7f;" id="mob-count-1">00</span>
+                <span style="font-size: 9px; color: #6b7280; letter-spacing: 0.12em;">IN</span>
+            </button>
+            <button onclick="scrollToColumn(2)" id="mob-stat-2" style="flex: 1; background: none; border: none; cursor: pointer; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 4px 0 0 14px; font-family: inherit; opacity: 0.55; transition: opacity 0.2s;">
+                <span style="font-size: 26px; font-weight: 700; line-height: 1; letter-spacing: -0.03em; color: #6b7280;" id="mob-count-2">00</span>
+                <span style="font-size: 9px; color: #6b7280; letter-spacing: 0.12em;">DONE</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Board (horizontal swipe) -->
+    <div id="mobile-board" style="flex: 1; min-height: 0; display: flex; overflow-x: auto; overflow-y: hidden; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch;">
+
+        <!-- Backlog page -->
+        <div class="mobile-page" data-col="0" style="flex: 0 0 100%; scroll-snap-align: start; overflow-y: auto; overflow-x: hidden; padding: 18px 18px 80px; position: relative;">
+            <div style="position: absolute; top: 4px; right: 14px; font-size: 120px; font-weight: 700; opacity: 0.06; color: #22d3ee; pointer-events: none; line-height: 1; letter-spacing: -0.04em; user-select: none;">01</div>
+            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 18px;">
+                <div style="width: 14px; height: 14px; background: #22d3ee; flex: none;"></div>
+                <span style="font-size: 18px; font-weight: 700; letter-spacing: 0.05em;">BACKLOG</span>
+            </div>
+            <div id="mob-backlog" style="display: flex; flex-direction: column; gap: 12px;"></div>
+        </div>
+
+        <!-- In Progress page -->
+        <div class="mobile-page" data-col="1" style="flex: 0 0 100%; scroll-snap-align: start; overflow-y: auto; overflow-x: hidden; padding: 18px 18px 80px; position: relative;">
+            <div style="position: absolute; top: 4px; right: 14px; font-size: 120px; font-weight: 700; opacity: 0.06; color: #00ff7f; pointer-events: none; line-height: 1; letter-spacing: -0.04em; user-select: none;">02</div>
+            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 18px;">
+                <div style="width: 14px; height: 14px; background: #00ff7f; flex: none;"></div>
+                <span style="font-size: 18px; font-weight: 700; letter-spacing: 0.05em;">IN PROGRESS</span>
+            </div>
+            <div id="mob-inprogress" style="display: flex; flex-direction: column; gap: 12px;"></div>
+        </div>
+
+        <!-- Done page -->
+        <div class="mobile-page" data-col="2" style="flex: 0 0 100%; scroll-snap-align: start; overflow-y: auto; overflow-x: hidden; padding: 18px 18px 80px; position: relative;">
+            <div style="position: absolute; top: 4px; right: 14px; font-size: 120px; font-weight: 700; opacity: 0.06; color: #6b7280; pointer-events: none; line-height: 1; letter-spacing: -0.04em; user-select: none;">03</div>
+            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 18px;">
+                <div style="width: 14px; height: 14px; background: #6b7280; flex: none;"></div>
+                <span style="font-size: 18px; font-weight: 700; letter-spacing: 0.05em;">DONE</span>
+            </div>
+            <div id="mob-done" style="display: flex; flex-direction: column; gap: 12px; opacity: 0.55;"></div>
+        </div>
+
+    </div>
+
+    <!-- Bottom tab bar -->
+    <div style="flex: none; height: 62px; display: flex; justify-content: center; border-top: 1px solid #222; background: rgba(10,10,10,0.92);">
+        <button style="flex: 0 0 auto; padding: 0 40px; background: none; border: none; cursor: pointer; color: #00ff7f; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; font-family: inherit; font-size: 9px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; position: relative;">
+            <div style="position: absolute; top: 0; width: 22px; height: 2px; background: #00ff7f;"></div>
+            <svg width="20" height="20" fill="none" stroke="#00ff7f" stroke-width="2" stroke-linecap="square" stroke-linejoin="round" viewBox="0 0 24 24">
+                <path d="M3 12L12 3l9 9M5 10v9h5v-5h4v5h5v-9"/>
+            </svg>
+            DASHBOARD
+        </button>
+    </div>
+
+    <!-- FAB -->
+    <button onclick="openSheet()" style="position: absolute; right: 18px; bottom: 78px; z-index: 30; width: 56px; height: 56px; background: #00ff7f; color: #000; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 0 1px rgba(0,255,127,0.4), 0 8px 24px rgba(0,255,127,0.18);">
+        <svg width="26" height="26" fill="none" stroke="#000" stroke-width="2.5" stroke-linecap="square" viewBox="0 0 24 24">
+            <path d="M12 5v14M5 12h14"/>
+        </svg>
+    </button>
+
+    <!-- Create sheet -->
+    <div id="create-sheet-root" style="position: absolute; inset: 0; z-index: 60;">
+        <div id="create-scrim" onclick="closeSheet()" style="position: absolute; inset: 0; background: rgba(0,0,0,0.65); backdrop-filter: blur(2px); -webkit-backdrop-filter: blur(2px);"></div>
+        <div id="create-sheet" style="position: absolute; left: 0; right: 0; bottom: 0; background: #0c0c0c; border-top: 1px solid #00ff7f; padding: 12px 20px 26px;">
+            <div style="width: 40px; height: 4px; background: #2a2a2a; margin: 0 auto 16px;"></div>
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
+                <span style="font-size: 12px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.16em;">INPUT NEW PROTOCOL</span>
+                <button onclick="closeSheet()" style="background: none; border: none; color: #6b7280; cursor: pointer; padding: 4px; display: flex; align-items: center;">
+                    <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" viewBox="0 0 24 24">
+                        <path d="M18 6L6 18M6 6l12 12"/>
+                    </svg>
+                </button>
+            </div>
+            <div style="display: flex; align-items: center; gap: 10px; border: 1px solid #00ff7f; background: rgba(0,255,127,0.04); padding: 0 14px; box-shadow: 0 0 0 1px rgba(0,255,127,0.25);">
+                <span style="color: #00ff7f; font-size: 14px; font-weight: 700;">></span>
+                <input id="mob-task-input" type="text" placeholder="ENTER TASK..."
+                    oninput="document.getElementById('mobile-create-btn').disabled = this.value.trim() === ''"
+                    onkeydown="if(event.key==='Enter') createNewTaskMobile()"
+                    style="flex: 1; background: transparent; border: none; outline: none; color: #00ff7f; font-family: inherit; font-size: 13px; letter-spacing: 0.04em; padding: 15px 0; text-transform: uppercase;">
+            </div>
+            <button id="mobile-create-btn" onclick="createNewTaskMobile()" disabled
+                style="width: 100%; margin-top: 14px; min-height: 50px; background: #00ff7f; color: #000; border: none; font-family: inherit; font-weight: 700; font-size: 13px; text-transform: uppercase; letter-spacing: 0.18em;">
+                CREATE
+            </button>
+            <div style="margin-top: 12px; font-size: 9px; color: #374151; letter-spacing: 0.12em; text-align: center;">// FILED TO BACKLOG ON CREATE</div>
+        </div>
+    </div>
+
+</div>
+
+<script src="app.js"></script>
 </body>
 </html>

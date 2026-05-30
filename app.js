@@ -26,18 +26,25 @@ async function supabase(method, path, body = null) {
     return text ? JSON.parse(text) : [];
 }
 
-// 1. IN-MEMORY STATE (keeps UI instant)
+// 1. IN-MEMORY STATE
 let taskState = [];
 
 async function loadTasks() {
     taskState = await supabase('GET', 'tasks?order=task_number.asc');
 }
 
-// 2. RENDERING
-function renderBoard(tasks) {
+// 2. RENDER BOTH VIEWS
+function render() {
+    renderDesktop(taskState);
+    renderMobile(taskState);
+}
+
+// ---- DESKTOP ----
+function renderDesktop(tasks) {
     const backlogCol = document.getElementById('backlog-container');
     const inprogressCol = document.getElementById('inprogress-container');
     const doneCol = document.getElementById('done-container');
+    if (!backlogCol) return;
 
     backlogCol.innerHTML = '';
     inprogressCol.innerHTML = '';
@@ -67,8 +74,7 @@ function renderBoard(tasks) {
                         </svg>
                     </button>
                 </div>
-            </div>
-        `;
+            </div>`;
 
         if (task.status === 'backlog') backlogCol.innerHTML += cardHTML;
         else if (task.status === 'in-progress') inprogressCol.innerHTML += cardHTML;
@@ -76,9 +82,77 @@ function renderBoard(tasks) {
     });
 }
 
-async function refreshBoard() {
-    await loadTasks();
-    renderBoard(taskState);
+// ---- MOBILE ----
+const ARROW_ICON = `<svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>`;
+const TRASH_ICON = `<svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" viewBox="0 0 24 24"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>`;
+
+function renderMobile(tasks) {
+    const backlogEl = document.getElementById('mob-backlog');
+    const inprogressEl = document.getElementById('mob-inprogress');
+    const doneEl = document.getElementById('mob-done');
+    if (!backlogEl) return;
+
+    backlogEl.innerHTML = '';
+    inprogressEl.innerHTML = '';
+    doneEl.innerHTML = '';
+
+    const empty = `<div style="font-size: 10px; color: #2a2a2a; letter-spacing: 0.1em; padding: 10px 2px;">// NO PROTOCOLS</div>`;
+
+    const backlog = tasks.filter(t => t.status === 'backlog');
+    const inprogress = tasks.filter(t => t.status === 'in-progress');
+    const done = tasks.filter(t => t.status === 'done');
+
+    if (backlog.length === 0) backlogEl.innerHTML = empty;
+    if (inprogress.length === 0) inprogressEl.innerHTML = empty;
+    if (done.length === 0) doneEl.innerHTML = empty;
+
+    tasks.forEach(task => {
+        const num = String(task.task_number).padStart(3, '0');
+        const isDone = task.status === 'done';
+        const moveLabel = isDone ? 'RESET' : 'MOVE';
+        const moveClass = isDone ? 'mob-btn-move is-reset' : 'mob-btn-move';
+        const moveArrow = isDone ? '' : ARROW_ICON;
+
+        const card = `
+            <div style="border: 1px solid #222; background: #141414; padding: 14px;">
+                <div style="font-size: 10px; color: #6b7280; margin-bottom: 12px;">#${num}</div>
+                <div style="font-size: 13px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.45; color: #e5e7eb; margin-bottom: 14px;">${task.description}</div>
+                <div style="display: flex; gap: 8px;">
+                    <button class="${moveClass}" onclick="moveTask('${task.id}', '${task.status}')">${moveLabel} ${moveArrow}</button>
+                    <button class="mob-btn-del" onclick="deleteTask('${task.id}')">${TRASH_ICON}</button>
+                </div>
+            </div>`;
+
+        if (task.status === 'backlog') backlogEl.innerHTML += card;
+        else if (task.status === 'in-progress') inprogressEl.innerHTML += card;
+        else if (task.status === 'done') doneEl.innerHTML += card;
+    });
+
+    updateMobileStats(tasks);
+}
+
+function updateMobileStats(tasks) {
+    const counts = [
+        tasks.filter(t => t.status === 'backlog').length,
+        tasks.filter(t => t.status === 'in-progress').length,
+        tasks.filter(t => t.status === 'done').length,
+    ];
+    const total = counts.reduce((a, b) => a + b, 0) || 1;
+
+    for (let i = 0; i < 3; i++) {
+        const el = document.getElementById(`mob-count-${i}`);
+        if (el) el.textContent = String(counts[i]).padStart(2, '0');
+    }
+
+    const distColors = ['#22d3ee', '#00ff7f', '#6b7280'];
+    const dist = document.getElementById('mob-dist');
+    if (dist) {
+        dist.innerHTML = distColors.map((color, i) => {
+            const grow = Math.max(counts[i] / total, 0.035);
+            const opacity = i === 2 ? '0.55' : '1';
+            return `<div style="flex: ${grow}; background: ${color}; opacity: ${opacity};"></div>`;
+        }).join('');
+    }
 }
 
 // 3. CORE ACTIONS
@@ -86,13 +160,13 @@ async function moveTask(taskId, currentStatus) {
     const next = { backlog: 'in-progress', 'in-progress': 'done', done: 'backlog' };
     const newStatus = next[currentStatus];
     const task = taskState.find(t => t.id === taskId);
-    if (task) { task.status = newStatus; renderBoard(taskState); }
+    if (task) { task.status = newStatus; render(); }
     supabase('PATCH', `tasks?id=eq.${encodeURIComponent(taskId)}`, { status: newStatus });
 }
 
 async function deleteTask(taskId) {
     taskState = taskState.filter(t => t.id !== taskId);
-    renderBoard(taskState);
+    render();
     supabase('DELETE', `tasks?id=eq.${encodeURIComponent(taskId)}`);
 }
 
@@ -100,48 +174,50 @@ async function createNewTask() {
     const inputElement = document.getElementById('task-input');
     const taskText = inputElement.value.trim();
     if (taskText === '') return;
-
     const generatedId = crypto.randomUUID();
     const tempTask = { id: generatedId, description: taskText.toUpperCase(), status: 'backlog', task_number: '...' };
     taskState.push(tempTask);
-    renderBoard(taskState);
+    render();
     inputElement.value = '';
     document.getElementById('create-btn').disabled = true;
-
-    const created = await supabase('POST', 'tasks', {
-        id: generatedId,
-        description: tempTask.description,
-        status: 'backlog'
-    });
-    if (created[0]) { tempTask.task_number = created[0].task_number; renderBoard(taskState); }
+    const created = await supabase('POST', 'tasks', { id: generatedId, description: tempTask.description, status: 'backlog' });
+    if (created[0]) { tempTask.task_number = created[0].task_number; render(); }
 }
 
-// 4. DRAG AND DROP
+async function createNewTaskMobile() {
+    const inputEl = document.getElementById('mob-task-input');
+    const taskText = inputEl.value.trim();
+    if (taskText === '') return;
+    const generatedId = crypto.randomUUID();
+    const tempTask = { id: generatedId, description: taskText.toUpperCase(), status: 'backlog', task_number: '...' };
+    taskState.unshift(tempTask); // newest first on mobile
+    render();
+    inputEl.value = '';
+    document.getElementById('mobile-create-btn').disabled = true;
+    closeSheet();
+    scrollToColumn(0); // jump to backlog
+    const created = await supabase('POST', 'tasks', { id: generatedId, description: tempTask.description, status: 'backlog' });
+    if (created[0]) { tempTask.task_number = created[0].task_number; render(); }
+}
+
+// 4. DESKTOP DRAG AND DROP
 function handleDragStart(event, taskId) {
     event.dataTransfer.setData('text/plain', taskId);
     setTimeout(() => { event.target.style.opacity = '0'; }, 0);
 }
-
-function handleDragEnd(event) {
-    event.target.style.opacity = '1';
-}
-
-function handleDragOver(event) {
-    event.preventDefault();
-}
+function handleDragEnd(event) { event.target.style.opacity = '1'; }
+function handleDragOver(event) { event.preventDefault(); }
 
 function applyDrop(taskId, targetStatus) {
     const task = taskState.find(t => t.id === taskId);
-    if (task) { task.status = targetStatus; renderBoard(taskState); }
+    if (task) { task.status = targetStatus; render(); }
     supabase('PATCH', `tasks?id=eq.${encodeURIComponent(taskId)}`, { status: targetStatus });
 }
-
 function handleDrop(event, targetStatus) {
     event.preventDefault();
     const taskId = event.dataTransfer.getData('text/plain');
     if (taskId) applyDrop(taskId, targetStatus);
 }
-
 function handleCardDrop(event) {
     event.preventDefault();
     event.stopPropagation();
@@ -151,7 +227,60 @@ function handleCardDrop(event) {
     if (container) applyDrop(taskId, container.dataset.status);
 }
 
-// 5. INIT
+// 5. MOBILE SHEET
+function openSheet() {
+    document.getElementById('create-sheet-root').classList.add('is-open');
+    setTimeout(() => document.getElementById('mob-task-input').focus(), 60);
+}
+function closeSheet() {
+    document.getElementById('create-sheet-root').classList.remove('is-open');
+    document.getElementById('mob-task-input').value = '';
+    document.getElementById('mobile-create-btn').disabled = true;
+}
+
+// 6. MOBILE COLUMN SWITCHER
+let activeColumn = 0;
+
+function scrollToColumn(col) {
+    const board = document.getElementById('mobile-board');
+    if (!board) return;
+    board.scrollTo({ left: col * board.offsetWidth, behavior: 'smooth' });
+}
+
+function updateActiveColumn() {
+    const board = document.getElementById('mobile-board');
+    if (!board) return;
+    const col = Math.round(board.scrollLeft / board.offsetWidth);
+    if (col === activeColumn) return;
+    activeColumn = col;
+    for (let i = 0; i < 3; i++) {
+        const stat = document.getElementById(`mob-stat-${i}`);
+        if (stat) stat.style.opacity = i === col ? '1' : '0.55';
+    }
+}
+
+// 7. LIVE CLOCK
+function updateClock() {
+    const now = new Date();
+    const hh = String(now.getHours()).padStart(2, '0');
+    const mm = String(now.getMinutes()).padStart(2, '0');
+    const days = ['SUN','MON','TUE','WED','THU','FRI','SAT'];
+    const months = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
+    const timeEl = document.getElementById('mob-time');
+    const dateEl = document.getElementById('mob-date');
+    if (timeEl) timeEl.textContent = `${hh}:${mm}`;
+    if (dateEl) dateEl.textContent = `${days[now.getDay()]} ${now.getDate()} ${months[now.getMonth()]}`;
+}
+
+// 8. INIT
 window.onload = async () => {
-    await refreshBoard();
+    updateClock();
+    setInterval(updateClock, 15000);
+
+    const board = document.getElementById('mobile-board');
+    if (board) board.addEventListener('scroll', updateActiveColumn, { passive: true });
+
+    await loadTasks();
+    render();
+    updateActiveColumn();
 };
