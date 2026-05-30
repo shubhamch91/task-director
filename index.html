@@ -76,7 +76,7 @@
                 <div class="border-m7 p-6 bg-m7-black/50 backdrop-blur-sm">
                     <label class="block text-xs text-gray-500 mb-2 uppercase tracking-widest">Input New Task</label>
                     <div class="flex gap-4">
-                        <input id="task-input" oninput="document.getElementById('create-btn').disabled = this.value.trim() === ''" class="flex-1 bg-transparent border-m7 text-m7-neon placeholder:text-gray-700 focus:ring-1 focus:ring-m7-neon focus:border-m7-neon px-4 py-3 text-sm" placeholder="ENTER TASK..." type="text">
+                        <input id="task-input" oninput="document.getElementById('create-btn').disabled = this.value.trim() === ''" onkeydown="if(event.key==='Enter') createNewTask()" class="flex-1 bg-transparent border-m7 text-m7-neon placeholder:text-gray-700 focus:ring-1 focus:ring-m7-neon focus:border-m7-neon px-4 py-3 text-sm" placeholder="ENTER TASK..." type="text">
                         <button id="create-btn" onclick="createNewTask()" disabled class="bg-m7-neon text-black px-6 py-3 font-bold flex items-center gap-2 hover:bg-m7-neon/90 transition-all text-xs tracking-widest disabled:opacity-30 disabled:cursor-not-allowed">
                             CREATE
                         </button>
