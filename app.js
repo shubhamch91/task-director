@@ -29,6 +29,7 @@ async function supabase(method, path, body = null) {
 // 1. IN-MEMORY STATE
 let taskState = [];
 let editingTaskId = null;
+let editDraft = '';
 let lastDroppedId = null;
 
 async function loadTasks() {
@@ -64,10 +65,13 @@ function renderDesktop(tasks) {
                 <input id="edit-input-${task.id}"
                     class="w-full bg-transparent border border-m7-neon text-m7-neon px-2 py-1 text-xs font-bold mb-3 outline-none uppercase"
                     value="${task.description}"
-                    onkeydown="if(event.key==='Enter'){event.preventDefault();saveEdit('${task.id}');}else if(event.key==='Escape')cancelEdit()">
+                    oninput="editDraft = this.value"
+                    onchange="editDraft = this.value"
+                    onblur="editDraft = this.value"
+                    onkeydown="if(event.key==='Enter'){event.preventDefault();saveInlineEdit('${task.id}');}else if(event.key==='Escape')cancelInlineEdit()">
                 <div class="flex gap-2">
-                    <button draggable="false" class="flex-1 bg-m7-neon text-black text-[10px] py-2 uppercase font-bold" onclick="saveEdit('${task.id}')">Save</button>
-                    <button draggable="false" class="flex-1 bg-m7-gray text-[10px] py-2 uppercase hover:bg-gray-700" onclick="cancelEdit()">Cancel</button>
+                    <button draggable="false" class="flex-1 bg-m7-neon text-black text-[10px] py-2 uppercase font-bold" onclick="saveInlineEdit('${task.id}')">Save</button>
+                    <button draggable="false" class="flex-1 bg-m7-gray text-[10px] py-2 uppercase hover:bg-gray-700" onclick="cancelInlineEdit()">Cancel</button>
                 </div>`;
         } else {
             const moveButton = task.status !== 'done'
@@ -80,7 +84,7 @@ function renderDesktop(tasks) {
                 <p class="text-xs font-bold mb-4 tracking-tighter">${task.description}</p>
                 <div class="flex gap-2">
                     ${moveButton}
-                    <button draggable="false" class="p-2 bg-m7-dark-gray hover:bg-gray-700 transition-colors border border-gray-700" onclick="enterEdit('${task.id}')">
+                    <button draggable="false" class="p-2 bg-m7-dark-gray hover:bg-gray-700 transition-colors border border-gray-700" onclick="enterInlineEdit('${task.id}')">
                         <svg class="h-4 w-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
                         </svg>
@@ -115,6 +119,7 @@ function renderDesktop(tasks) {
 // ---- MOBILE ----
 const ARROW_ICON = `<svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>`;
 const TRASH_ICON = `<svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" viewBox="0 0 24 24"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>`;
+const EDIT_ICON = `<svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" viewBox="0 0 24 24"><path d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/></svg>`;
 
 function renderMobile(tasks) {
     const backlogEl = document.getElementById('mob-backlog');
@@ -137,25 +142,58 @@ function renderMobile(tasks) {
     if (done.length === 0) doneEl.innerHTML = empty;
 
     tasks.forEach(task => {
+        const isEditing = editingTaskId === task.id;
         const num = String(task.task_number).padStart(3, '0');
-        const isDone = task.status === 'done';
-        const moveLabel = isDone ? 'RESET' : 'MOVE';
-        const moveClass = isDone ? 'mob-btn-move is-reset' : 'mob-btn-move';
-        const moveArrow = isDone ? '' : ARROW_ICON;
+        let card;
 
-        const card = `
-            <div style="border: 1px solid #222; background: #141414; padding: 14px;">
-                <div style="font-size: 10px; color: #6b7280; margin-bottom: 12px;">#${num}</div>
-                <div style="font-size: 13px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.45; color: #e5e7eb; margin-bottom: 14px;">${task.description}</div>
-                <div style="display: flex; gap: 8px;">
-                    <button class="${moveClass}" onclick="moveTask('${task.id}', '${task.status}')">${moveLabel} ${moveArrow}</button>
-                    <button class="mob-btn-del" onclick="deleteTask('${task.id}')">${TRASH_ICON}</button>
-                </div>
-            </div>`;
+        if (isEditing) {
+            card = `
+                <div style="border: 1px solid #222; background: #141414; padding: 14px;">
+                    <div style="font-size: 10px; color: #6b7280; margin-bottom: 12px;">#${num}</div>
+                    <div style="margin-bottom: 14px;">
+                        <input id="mob-edit-input-${task.id}"
+                            style="width: 100%; background: transparent; border: 1px solid #00ff7f; color: #00ff7f; font-family: inherit; font-size: 13px; font-weight: 700; padding: 6px 8px; text-transform: uppercase; outline: none; line-height: 1.45;"
+                            value="${task.description}"
+                            oninput="editDraft = this.value"
+                            onchange="editDraft = this.value"
+                            onblur="editDraft = this.value"
+                            onkeydown="if(event.key==='Enter'){event.preventDefault();saveInlineEdit('${task.id}');}else if(event.key==='Escape')cancelInlineEdit()">
+                    </div>
+                    <div style="display: flex; gap: 8px;">
+                        <button class="mob-btn-move" style="background: #00ff7f; color: #000;" ontouchend="event.preventDefault(); saveInlineEdit('${task.id}')" onclick="saveInlineEdit('${task.id}')">SAVE</button>
+                        <button class="mob-btn-del" style="border-color: #4b5563; color: #4b5563;" ontouchend="event.preventDefault(); cancelInlineEdit()" onclick="cancelInlineEdit()">
+                            <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                        </button>
+                    </div>
+                </div>`;
+        } else {
+            const isDone = task.status === 'done';
+            const moveLabel = isDone ? 'RESET' : 'MOVE';
+            const moveClass = isDone ? 'mob-btn-move is-reset' : 'mob-btn-move';
+            const moveArrow = isDone ? '' : ARROW_ICON;
+
+            card = `
+                <div style="border: 1px solid #222; background: #141414; padding: 14px;">
+                    <div style="font-size: 10px; color: #6b7280; margin-bottom: 12px;">#${num}</div>
+                    <div style="font-size: 13px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.45; color: #e5e7eb; margin-bottom: 14px;">${task.description}</div>
+                    <div style="display: flex; gap: 8px;">
+                        <button class="${moveClass}" ontouchend="event.preventDefault(); moveTask('${task.id}', '${task.status}')" onclick="moveTask('${task.id}', '${task.status}')">${moveLabel} ${moveArrow}</button>
+                        <button class="mob-btn-edit" ontouchend="event.preventDefault(); enterInlineEdit('${task.id}')" onclick="enterInlineEdit('${task.id}')">${EDIT_ICON}</button>
+                        <button class="mob-btn-del" ontouchend="event.preventDefault(); deleteTask('${task.id}')" onclick="deleteTask('${task.id}')">${TRASH_ICON}</button>
+                    </div>
+                </div>`;
+        }
 
         if (task.status === 'backlog') backlogEl.innerHTML += card;
         else if (task.status === 'in-progress') inprogressEl.innerHTML += card;
         else if (task.status === 'done') doneEl.innerHTML += card;
+
+        if (isEditing) {
+            setTimeout(() => {
+                const el = document.getElementById(`mob-edit-input-${task.id}`);
+                if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); }
+            }, 10);
+        }
     });
 
     updateMobileStats(tasks);
@@ -189,28 +227,30 @@ function updateMobileStats(tasks) {
 
 // 3. CORE ACTIONS
 
-function enterEdit(taskId) {
+function enterInlineEdit(taskId) {
+    const task = taskState.find(t => t.id === taskId);
     editingTaskId = taskId;
+    editDraft = task ? task.description : '';
     render();
     setTimeout(() => {
-        const el = document.getElementById(`edit-input-${taskId}`);
+        const el = document.getElementById(`edit-input-${taskId}`) || document.getElementById(`mob-edit-input-${taskId}`);
         if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); }
     }, 10);
 }
 
-function cancelEdit() {
+function cancelInlineEdit() {
     editingTaskId = null;
     render();
 }
 
-async function saveEdit(taskId) {
+async function saveInlineEdit(taskId) {
     const task = taskState.find(t => t.id === taskId);
-    const input = document.getElementById(`edit-input-${taskId}`);
-    if (!task || !input) return;
-    const newDesc = input.value.trim();
-    if (newDesc === '') { cancelEdit(); return; }
+    if (!task) return;
+    const newDesc = editDraft.trim();
+    if (newDesc === '') { cancelInlineEdit(); return; }
     task.description = newDesc.toUpperCase();
     editingTaskId = null;
+    editDraft = '';
     render();
     supabase('PATCH', `tasks?id=eq.${encodeURIComponent(taskId)}`, { description: task.description });
 }

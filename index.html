@@ -45,11 +45,13 @@
         #mobile-create-btn:disabled { opacity: 0.3; cursor: not-allowed; }
         #mobile-create-btn:not(:disabled):active { background: rgba(0,255,127,0.85); }
 
-        .mob-btn-move { flex: 1; min-height: 44px; background: #2a2a2a; color: #e5e7eb; border: none; cursor: pointer; font-family: inherit; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; display: flex; align-items: center; justify-content: center; gap: 8px; }
+        .mob-btn-move { flex: 1; min-height: 44px; background: #2a2a2a; color: #e5e7eb; border: none; cursor: pointer; font-family: inherit; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; display: flex; align-items: center; justify-content: center; gap: 8px; touch-action: manipulation; }
         .mob-btn-move:active { background: #374151; }
         .mob-btn-move.is-reset { color: #6b7280; }
-        .mob-btn-del { width: 44px; min-height: 44px; flex: none; background: #141414; border: 1px solid #ef4444; color: #ef4444; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+        .mob-btn-del { width: 44px; min-height: 44px; flex: none; background: #141414; border: 1px solid #ef4444; color: #ef4444; cursor: pointer; display: flex; align-items: center; justify-content: center; touch-action: manipulation; }
         .mob-btn-del:active { background: rgba(127,29,29,0.25); }
+        .mob-btn-edit { width: 44px; min-height: 44px; flex: none; background: #141414; border: 1px solid #2a2a2a; color: #4b5563; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s; touch-action: manipulation; }
+        .mob-btn-edit:active { background: #1a1a1a; color: #00ff7f; border-color: #00ff7f; }
 
         .card-just-dropped { transition: transform 0.25s ease-out; }
     </style>
