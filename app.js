@@ -392,15 +392,12 @@ function updateClock() {
 }
 
 // 8. MOBILE TAP DETECTION
-let _touchStart = { x: 0, y: 0 };
-document.addEventListener('touchstart', e => {
-    _touchStart.x = e.touches[0].clientX;
-    _touchStart.y = e.touches[0].clientY;
-}, { passive: true });
+let _didScroll = false;
+document.addEventListener('touchstart', () => { _didScroll = false; }, { passive: true });
+document.addEventListener('touchmove', () => { _didScroll = true; }, { passive: true });
 
 function isTap(event) {
-    const t = event.changedTouches[0];
-    return Math.abs(t.clientX - _touchStart.x) < 10 && Math.abs(t.clientY - _touchStart.y) < 10;
+    return !_didScroll;
 }
 
 // 9. INIT
