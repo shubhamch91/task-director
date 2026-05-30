@@ -28,6 +28,8 @@ async function supabase(method, path, body = null) {
 
 // 1. IN-MEMORY STATE
 let taskState = [];
+let editingTaskId = null;
+let lastDroppedId = null;
 
 async function loadTasks() {
     taskState = await supabase('GET', 'tasks?order=task_number.asc');
@@ -51,29 +53,57 @@ function renderDesktop(tasks) {
     doneCol.innerHTML = '';
 
     tasks.forEach(task => {
-        const moveButton = task.status !== 'done'
-            ? `<button draggable="false" class="flex-1 bg-m7-gray text-[10px] py-2 uppercase hover:bg-gray-700" onclick="moveTask('${task.id}', '${task.status}')">Move</button>`
-            : '';
+        const isEditing = editingTaskId === task.id;
 
-        const cardHTML = `
-            <div class="task-card border-m7 p-4 bg-m7-dark-gray hover:border-gray-500 transition-colors cursor-grab active:cursor-grabbing"
-                 draggable="true"
-                 ondragstart="handleDragStart(event, '${task.id}')"
-                 ondragend="handleDragEnd(event)"
-                 ondragover="handleDragOver(event)"
-                 ondrop="handleCardDrop(event)">
+        let cardInner;
+        if (isEditing) {
+            cardInner = `
+                <div class="flex justify-between text-[10px] text-gray-500 mb-3">
+                    <span>#${task.task_number}</span>
+                </div>
+                <input id="edit-input-${task.id}"
+                    class="w-full bg-transparent border border-m7-neon text-m7-neon px-2 py-1 text-xs font-bold mb-3 outline-none uppercase"
+                    value="${task.description}"
+                    onkeydown="if(event.key==='Enter'){event.preventDefault();saveEdit('${task.id}');}else if(event.key==='Escape')cancelEdit()">
+                <div class="flex gap-2">
+                    <button draggable="false" class="flex-1 bg-m7-neon text-black text-[10px] py-2 uppercase font-bold" onclick="saveEdit('${task.id}')">Save</button>
+                    <button draggable="false" class="flex-1 bg-m7-gray text-[10px] py-2 uppercase hover:bg-gray-700" onclick="cancelEdit()">Cancel</button>
+                </div>`;
+        } else {
+            const moveButton = task.status !== 'done'
+                ? `<button draggable="false" class="flex-1 bg-m7-gray text-[10px] py-2 uppercase hover:bg-gray-700" onclick="moveTask('${task.id}', '${task.status}')">Move</button>`
+                : '';
+            cardInner = `
                 <div class="flex justify-between text-[10px] text-gray-500 mb-3">
                     <span>#${task.task_number}</span>
                 </div>
                 <p class="text-xs font-bold mb-4 tracking-tighter">${task.description}</p>
                 <div class="flex gap-2">
                     ${moveButton}
+                    <button draggable="false" class="p-2 bg-m7-dark-gray hover:bg-gray-700 transition-colors border border-gray-700" onclick="enterEdit('${task.id}')">
+                        <svg class="h-4 w-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+                        </svg>
+                    </button>
                     <button draggable="false" class="p-2 bg-m7-dark-gray hover:bg-red-900/20 transition-colors border border-red-500" onclick="deleteTask('${task.id}')">
                         <svg class="h-4 w-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
                         </svg>
                     </button>
-                </div>
+                </div>`;
+        }
+
+        const dropClass = task.id === lastDroppedId ? 'card-just-dropped' : '';
+
+        const cardHTML = `
+            <div class="task-card border-m7 p-4 bg-m7-dark-gray hover:border-gray-500 transition-colors ${isEditing ? 'cursor-default' : 'cursor-grab active:cursor-grabbing'} ${dropClass}"
+                 data-id="${task.id}"
+                 draggable="${!isEditing}"
+                 ondragstart="handleDragStart(event, '${task.id}')"
+                 ondragend="handleDragEnd(event)"
+                 ondragover="handleDragOver(event)"
+                 ondrop="handleCardDrop(event)">
+                ${cardInner}
             </div>`;
 
         if (task.status === 'backlog') backlogCol.innerHTML += cardHTML;
@@ -142,6 +172,8 @@ function updateMobileStats(tasks) {
     for (let i = 0; i < 3; i++) {
         const el = document.getElementById(`mob-count-${i}`);
         if (el) el.textContent = String(counts[i]).padStart(2, '0');
+        const wm = document.getElementById(`mob-wm-${i}`);
+        if (wm) wm.textContent = counts[i];
     }
 
     const distColors = ['#22d3ee', '#00ff7f', '#6b7280'];
@@ -156,6 +188,33 @@ function updateMobileStats(tasks) {
 }
 
 // 3. CORE ACTIONS
+
+function enterEdit(taskId) {
+    editingTaskId = taskId;
+    render();
+    setTimeout(() => {
+        const el = document.getElementById(`edit-input-${taskId}`);
+        if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); }
+    }, 10);
+}
+
+function cancelEdit() {
+    editingTaskId = null;
+    render();
+}
+
+async function saveEdit(taskId) {
+    const task = taskState.find(t => t.id === taskId);
+    const input = document.getElementById(`edit-input-${taskId}`);
+    if (!task || !input) return;
+    const newDesc = input.value.trim();
+    if (newDesc === '') { cancelEdit(); return; }
+    task.description = newDesc.toUpperCase();
+    editingTaskId = null;
+    render();
+    supabase('PATCH', `tasks?id=eq.${encodeURIComponent(taskId)}`, { description: task.description });
+}
+
 async function moveTask(taskId, currentStatus) {
     const next = { backlog: 'in-progress', 'in-progress': 'done', done: 'backlog' };
     const newStatus = next[currentStatus];
@@ -208,15 +267,35 @@ function handleDragStart(event, taskId) {
 function handleDragEnd(event) { event.target.style.opacity = '1'; }
 function handleDragOver(event) { event.preventDefault(); }
 
-function applyDrop(taskId, targetStatus) {
+function applyDrop(taskId, targetStatus, dropY) {
     const task = taskState.find(t => t.id === taskId);
-    if (task) { task.status = targetStatus; render(); }
+    if (!task) return;
+    task.status = targetStatus;
+    lastDroppedId = taskId;
+    render();
+
+    // Animate from drop position to final position
+    const cardEl = document.querySelector(`.task-card[data-id="${taskId}"]`);
+    if (cardEl && dropY != null) {
+        const finalTop = cardEl.getBoundingClientRect().top;
+        const offset = dropY - finalTop;
+        cardEl.style.transition = 'none';
+        cardEl.style.transform = `translateY(${offset}px)`;
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                cardEl.style.transition = 'transform 0.28s ease-out';
+                cardEl.style.transform = 'translateY(0)';
+            });
+        });
+    }
+
+    setTimeout(() => { lastDroppedId = null; }, 300);
     supabase('PATCH', `tasks?id=eq.${encodeURIComponent(taskId)}`, { status: targetStatus });
 }
 function handleDrop(event, targetStatus) {
     event.preventDefault();
     const taskId = event.dataTransfer.getData('text/plain');
-    if (taskId) applyDrop(taskId, targetStatus);
+    if (taskId) applyDrop(taskId, targetStatus, event.clientY);
 }
 function handleCardDrop(event) {
     event.preventDefault();
@@ -224,7 +303,7 @@ function handleCardDrop(event) {
     const taskId = event.dataTransfer.getData('text/plain');
     if (!taskId) return;
     const container = event.currentTarget.closest('[data-status]');
-    if (container) applyDrop(taskId, container.dataset.status);
+    if (container) applyDrop(taskId, container.dataset.status, event.clientY);
 }
 
 // 5. MOBILE SHEET

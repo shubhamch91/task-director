@@ -50,6 +50,8 @@
         .mob-btn-move.is-reset { color: #6b7280; }
         .mob-btn-del { width: 44px; min-height: 44px; flex: none; background: #141414; border: 1px solid #ef4444; color: #ef4444; cursor: pointer; display: flex; align-items: center; justify-content: center; }
         .mob-btn-del:active { background: rgba(127,29,29,0.25); }
+
+        .card-just-dropped { transition: transform 0.25s ease-out; }
     </style>
 </head>
 <body>
@@ -85,34 +87,34 @@
             </section>
 
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 flex-1">
-                <section class="flex flex-col border-m7 p-4 bg-m7-black/30">
+                <section class="flex flex-col border-m7 p-4 bg-m7-black/30" ondragover="handleDragOver(event)" ondrop="handleDrop(event, 'backlog')">
                     <header class="flex justify-between items-center mb-6">
                         <div class="flex items-center gap-2">
                             <span class="w-3 h-3 bg-cyan-400"></span>
                             <h3 class="font-bold text-sm tracking-widest uppercase">Backlog</h3>
                         </div>
                     </header>
-                    <div class="space-y-4 min-h-[400px]" id="backlog-container" data-status="backlog" ondragover="handleDragOver(event)" ondrop="handleDrop(event, 'backlog')"></div>
+                    <div class="space-y-4 min-h-[400px]" id="backlog-container" data-status="backlog"></div>
                 </section>
 
-                <section class="flex flex-col border-m7 p-4 bg-m7-black/30">
+                <section class="flex flex-col border-m7 p-4 bg-m7-black/30" ondragover="handleDragOver(event)" ondrop="handleDrop(event, 'in-progress')">
                     <header class="flex justify-between items-center mb-6">
                         <div class="flex items-center gap-2">
                             <span class="w-3 h-3 bg-m7-neon"></span>
                             <h3 class="font-bold text-sm tracking-widest uppercase">In Progress</h3>
                         </div>
                     </header>
-                    <div class="space-y-4 min-h-[400px]" id="inprogress-container" data-status="in-progress" ondragover="handleDragOver(event)" ondrop="handleDrop(event, 'in-progress')"></div>
+                    <div class="space-y-4 min-h-[400px]" id="inprogress-container" data-status="in-progress"></div>
                 </section>
 
-                <section class="flex flex-col border-m7 p-4 bg-m7-black/30">
+                <section class="flex flex-col border-m7 p-4 bg-m7-black/30" ondragover="handleDragOver(event)" ondrop="handleDrop(event, 'done')">
                     <header class="flex justify-between items-center mb-6">
                         <div class="flex items-center gap-2">
                             <span class="w-3 h-3 bg-gray-500"></span>
                             <h3 class="font-bold text-sm tracking-widest uppercase">Done</h3>
                         </div>
                     </header>
-                    <div class="space-y-4 min-h-[400px] opacity-50" id="done-container" data-status="done" ondragover="handleDragOver(event)" ondrop="handleDrop(event, 'done')"></div>
+                    <div class="space-y-4 min-h-[400px] opacity-50" id="done-container" data-status="done"></div>
                 </section>
             </div>
         </main>
@@ -159,7 +161,7 @@
 
         <!-- Backlog page -->
         <div class="mobile-page" data-col="0" style="flex: 0 0 100%; scroll-snap-align: start; overflow-y: auto; overflow-x: hidden; padding: 18px 18px 80px; position: relative;">
-            <div style="position: absolute; top: 4px; right: 14px; font-size: 120px; font-weight: 700; opacity: 0.06; color: #22d3ee; pointer-events: none; line-height: 1; letter-spacing: -0.04em; user-select: none;">01</div>
+            <div id="mob-wm-0" style="position: absolute; top: 4px; right: 14px; font-size: 120px; font-weight: 700; opacity: 0.06; color: #22d3ee; pointer-events: none; line-height: 1; letter-spacing: -0.04em; user-select: none;">0</div>
             <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 18px;">
                 <div style="width: 14px; height: 14px; background: #22d3ee; flex: none;"></div>
                 <span style="font-size: 18px; font-weight: 700; letter-spacing: 0.05em;">BACKLOG</span>
@@ -169,7 +171,7 @@
 
         <!-- In Progress page -->
         <div class="mobile-page" data-col="1" style="flex: 0 0 100%; scroll-snap-align: start; overflow-y: auto; overflow-x: hidden; padding: 18px 18px 80px; position: relative;">
-            <div style="position: absolute; top: 4px; right: 14px; font-size: 120px; font-weight: 700; opacity: 0.06; color: #00ff7f; pointer-events: none; line-height: 1; letter-spacing: -0.04em; user-select: none;">02</div>
+            <div id="mob-wm-1" style="position: absolute; top: 4px; right: 14px; font-size: 120px; font-weight: 700; opacity: 0.06; color: #00ff7f; pointer-events: none; line-height: 1; letter-spacing: -0.04em; user-select: none;">0</div>
             <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 18px;">
                 <div style="width: 14px; height: 14px; background: #00ff7f; flex: none;"></div>
                 <span style="font-size: 18px; font-weight: 700; letter-spacing: 0.05em;">IN PROGRESS</span>
@@ -179,7 +181,7 @@
 
         <!-- Done page -->
         <div class="mobile-page" data-col="2" style="flex: 0 0 100%; scroll-snap-align: start; overflow-y: auto; overflow-x: hidden; padding: 18px 18px 80px; position: relative;">
-            <div style="position: absolute; top: 4px; right: 14px; font-size: 120px; font-weight: 700; opacity: 0.06; color: #6b7280; pointer-events: none; line-height: 1; letter-spacing: -0.04em; user-select: none;">03</div>
+            <div id="mob-wm-2" style="position: absolute; top: 4px; right: 14px; font-size: 120px; font-weight: 700; opacity: 0.06; color: #6b7280; pointer-events: none; line-height: 1; letter-spacing: -0.04em; user-select: none;">0</div>
             <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 18px;">
                 <div style="width: 14px; height: 14px; background: #6b7280; flex: none;"></div>
                 <span style="font-size: 18px; font-weight: 700; letter-spacing: 0.05em;">DONE</span>
