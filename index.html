@@ -305,16 +305,16 @@
     <div class="absolute inset-0 bg-black/80 backdrop-blur-sm" onclick="closeNewSpaceModal()">
         <div class="absolute inset-0 pointer-events-none opacity-20 bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.25)_50%),linear-gradient(90deg,rgba(255,0,0,0.06),rgba(0,255,0,0.02),rgba(0,0,255,0.06))] bg-[length:100%_4px,3px_100%]"></div>
     </div>
-    <div class="relative w-full max-w-md border border-m7-neon bg-m7-black p-8 shadow-[0_0_50px_rgba(0,255,127,0.1)]">
+    <div class="relative w-full max-w-md border-m7 bg-m7-black/50 backdrop-blur-sm p-8">
         <div class="flex flex-col gap-4 font-mono">
-            <div class="flex items-center gap-2 text-m7-neon">
-                <span class="text-sm font-bold tracking-widest uppercase">ENTER NEW SPACE NAME:</span>
+            <div class="flex items-center gap-2">
+                <span class="text-xs text-gray-500 tracking-widest uppercase">Enter New Space Name</span>
             </div>
             <div class="relative flex items-center">
                 <input id="new-space-input" type="text" placeholder="..."
                     class="w-full bg-transparent border-none text-m7-neon focus:ring-0 p-0 text-lg uppercase tracking-widest placeholder:opacity-20"
                     onkeydown="if(event.key==='Enter') confirmNewSpace(); else if(event.key==='Escape') closeNewSpaceModal()">
-                <span class="animate-pulse w-2 h-6 bg-m7-neon ml-1"></span>
+                <span class="animate-pulse w-px h-5 bg-gray-600 ml-1"></span>
             </div>
             <div class="mt-8 flex justify-end gap-6 text-[10px] tracking-widest">
                 <button class="text-gray-600 hover:text-m7-neon uppercase transition-colors" onclick="closeNewSpaceModal()">[CANCEL]</button>
