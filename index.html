@@ -60,6 +60,10 @@
 
         /* Distribution bar segments transition */
         .dist-segment { transition: flex 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
+
+        /* ===== DESKTOP SPACES ===== */
+        #desk-spaces-list { scrollbar-width: none; -ms-overflow-style: none; }
+        #desk-spaces-list::-webkit-scrollbar { display: none; }
     </style>
 </head>
 <body>
@@ -87,6 +91,7 @@
             <section class="mb-6">
                 <div class="border-m7 p-6 bg-m7-black/50 backdrop-blur-sm">
                     <div class="flex items-center justify-between mb-4">
+                        <!-- Task counts -->
                         <div class="flex gap-12">
                             <div class="flex flex-col">
                                 <span class="text-3xl font-bold leading-none text-cyan-400 tracking-tighter" id="desk-count-0">00</span>
@@ -101,9 +106,25 @@
                                 <span class="text-[9px] text-gray-500 tracking-[0.2em] mt-1 uppercase">Done</span>
                             </div>
                         </div>
-                        <div class="text-right">
-                            <div class="text-[10px] text-gray-600 tracking-[0.1em] uppercase" id="desk-date">SYSTEM ONLINE</div>
-                            <div class="text-xl font-bold text-gray-400 tracking-widest mt-1" id="desk-time">00:00</div>
+                        <!-- Spaces + Clock -->
+                        <div class="flex items-center gap-8">
+                            <!-- Spaces switcher -->
+                            <div class="flex items-center gap-4 text-[10px] tracking-[0.2em] uppercase font-bold">
+                                <div class="relative flex items-center group/spaces">
+                                    <div class="absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-m7-black to-transparent pointer-events-none z-10 opacity-0 group-hover/spaces:opacity-100 transition-opacity"></div>
+                                    <div id="desk-spaces-list" class="flex items-center gap-4 overflow-x-auto px-2 max-w-[400px]"></div>
+                                    <div class="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-m7-black to-transparent pointer-events-none z-10 opacity-60 group-hover/spaces:opacity-100 transition-opacity"></div>
+                                </div>
+                                <button onclick="openNewSpaceModal()" class="flex-none w-6 h-6 border border-m7-border flex items-center justify-center text-gray-500 hover:text-m7-neon hover:border-m7-neon transition-colors cursor-pointer">
+                                    <span class="text-lg font-bold leading-none">+</span>
+                                </button>
+                            </div>
+                            <div class="w-px h-8 bg-m7-border"></div>
+                            <!-- Clock -->
+                            <div class="text-right">
+                                <div class="text-[10px] text-gray-600 tracking-[0.1em] uppercase" id="desk-date">SYSTEM ONLINE</div>
+                                <div class="text-xl font-bold text-gray-400 tracking-widest mt-1" id="desk-time">00:00</div>
+                            </div>
                         </div>
                     </div>
                     <div class="flex gap-[2px] h-2 w-full bg-m7-dark-gray/50 border border-m7-border/30" id="desk-dist"></div>
@@ -275,6 +296,32 @@
         </div>
     </div>
 
+</div>
+
+<!-- ===================================================
+     NEW SPACE MODAL (desktop only)
+     =================================================== -->
+<div id="new-space-modal" class="hidden fixed inset-0 z-[100] flex items-center justify-center p-4">
+    <div class="absolute inset-0 bg-black/80 backdrop-blur-sm" onclick="closeNewSpaceModal()">
+        <div class="absolute inset-0 pointer-events-none opacity-20 bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.25)_50%),linear-gradient(90deg,rgba(255,0,0,0.06),rgba(0,255,0,0.02),rgba(0,0,255,0.06))] bg-[length:100%_4px,3px_100%]"></div>
+    </div>
+    <div class="relative w-full max-w-md border border-m7-neon bg-m7-black p-8 shadow-[0_0_50px_rgba(0,255,127,0.1)]">
+        <div class="flex flex-col gap-4 font-mono">
+            <div class="flex items-center gap-2 text-m7-neon">
+                <span class="text-sm font-bold tracking-widest uppercase">ENTER NEW SPACE NAME:</span>
+            </div>
+            <div class="relative flex items-center">
+                <input id="new-space-input" type="text" placeholder="..."
+                    class="w-full bg-transparent border-none text-m7-neon focus:ring-0 p-0 text-lg uppercase tracking-widest placeholder:opacity-20"
+                    onkeydown="if(event.key==='Enter') confirmNewSpace(); else if(event.key==='Escape') closeNewSpaceModal()">
+                <span class="animate-pulse w-2 h-6 bg-m7-neon ml-1"></span>
+            </div>
+            <div class="mt-8 flex justify-end gap-6 text-[10px] tracking-widest">
+                <button class="text-gray-600 hover:text-m7-neon uppercase transition-colors" onclick="closeNewSpaceModal()">[CANCEL]</button>
+                <button class="text-m7-neon uppercase" onclick="confirmNewSpace()">[CONFIRM]</button>
+            </div>
+        </div>
+    </div>
 </div>
 
 <script src="app.js"></script>

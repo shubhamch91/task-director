@@ -27,20 +27,39 @@ async function supabase(method, path, body = null) {
 }
 
 // 1. IN-MEMORY STATE
-const DB_TABLE = window.location.hostname.includes('github.io') ? 'tasks' : 'tasks_dev';
-let taskState = [];
-let editingTaskId = null;
-let editDraft = '';
-let lastDroppedId = null;
+const DB_TABLE      = window.location.hostname.includes('github.io') ? 'tasks'      : 'tasks_dev';
+const SPACES_TABLE  = window.location.hostname.includes('github.io') ? 'spaces'     : 'spaces_dev';
+
+let taskState      = [];
+let spacesState    = [];
+let activeSpaceId  = null;
+let editingTaskId  = null;
+let editDraft      = '';
+let lastDroppedId  = null;
 
 async function loadTasks() {
     taskState = await supabase('GET', `${DB_TABLE}?order=task_number.asc`);
 }
 
+async function loadSpaces() {
+    spacesState = await supabase('GET', `${SPACES_TABLE}?order=created_at.asc`);
+    if (spacesState.length > 0 && !activeSpaceId) {
+        activeSpaceId = spacesState[0].id;
+    }
+}
+
 // 2. RENDER BOTH VIEWS
 function render() {
-    renderDesktop(taskState);
-    renderMobile(taskState);
+    // Desktop sees only the active space's tasks; mobile is unchanged for now
+    const desktopTasks = activeSpaceId
+        ? taskState.filter(t => t.space_id === activeSpaceId)
+        : taskState;
+
+    renderDesktop(desktopTasks);
+    updateDesktopStats(desktopTasks);
+    renderSpacesSwitcher();
+
+    renderMobile(taskState);   // mobile untouched until tomorrow's session
 }
 
 // ---- DESKTOP ----
@@ -220,7 +239,6 @@ function updateMobileStats(tasks) {
     const total = counts.reduce((a, b) => a + b, 0) || 1;
     const distColors = ['#22d3ee', '#00ff7f', '#6b7280'];
 
-    // Mobile
     for (let i = 0; i < 3; i++) {
         const el = document.getElementById(`mob-count-${i}`);
         if (el) el.textContent = String(counts[i]).padStart(2, '0');
@@ -235,8 +253,17 @@ function updateMobileStats(tasks) {
             return `<div style="flex: ${grow}; background: ${color}; opacity: ${opacity};"></div>`;
         }).join('');
     }
+}
 
-    // Desktop
+function updateDesktopStats(tasks) {
+    const counts = [
+        tasks.filter(t => t.status === 'backlog').length,
+        tasks.filter(t => t.status === 'in-progress').length,
+        tasks.filter(t => t.status === 'done').length,
+    ];
+    const total = counts.reduce((a, b) => a + b, 0) || 1;
+    const distColors = ['#22d3ee', '#00ff7f', '#6b7280'];
+
     for (let i = 0; i < 3; i++) {
         const el = document.getElementById(`desk-count-${i}`);
         if (el) el.textContent = String(counts[i]).padStart(2, '0');
@@ -300,12 +327,12 @@ async function createNewTask() {
     const taskText = inputElement.value.trim();
     if (taskText === '') return;
     const generatedId = crypto.randomUUID();
-    const tempTask = { id: generatedId, description: taskText.toUpperCase(), status: 'backlog', task_number: '...' };
+    const tempTask = { id: generatedId, description: taskText.toUpperCase(), status: 'backlog', task_number: '...', space_id: activeSpaceId };
     taskState.push(tempTask);
     render();
     inputElement.value = '';
     document.getElementById('create-btn').disabled = true;
-    const created = await supabase('POST', DB_TABLE, { id: generatedId, description: tempTask.description, status: 'backlog' });
+    const created = await supabase('POST', DB_TABLE, { id: generatedId, description: tempTask.description, status: 'backlog', space_id: activeSpaceId });
     if (created[0]) { tempTask.task_number = created[0].task_number; render(); }
 }
 
@@ -404,7 +431,74 @@ function updateActiveColumn() {
     }
 }
 
-// 7. LIVE CLOCK
+// 7. SPACES (DESKTOP)
+
+function renderSpacesSwitcher() {
+    const container = document.getElementById('desk-spaces-list');
+    if (!container) return;
+
+    if (spacesState.length === 0) {
+        container.innerHTML = `<span class="text-gray-600 text-[10px] tracking-widest">NO SPACES — HIT + TO CREATE ONE</span>`;
+        return;
+    }
+
+    container.innerHTML = spacesState.map((space, i) => {
+        const isActive = space.id === activeSpaceId;
+        const sep = i < spacesState.length - 1
+            ? `<span class="w-px h-3 bg-m7-border flex-none"></span>`
+            : '';
+
+        if (isActive) {
+            return `
+                <div class="flex items-center gap-1.5 text-m7-neon flex-none">
+                    <span class="w-1.5 h-1.5 rounded-full bg-m7-neon shadow-[0_0_8px_rgba(0,255,127,0.8)]"></span>
+                    <span>${space.name}</span>
+                </div>${sep}`;
+        }
+        return `
+            <div class="flex items-center gap-1.5 text-gray-600 hover:text-gray-400 cursor-pointer transition-colors flex-none"
+                 onclick="switchSpace('${space.id}')">
+                <span>${space.name}</span>
+            </div>${sep}`;
+    }).join('');
+}
+
+function switchSpace(spaceId) {
+    activeSpaceId = spaceId;
+    editingTaskId = null;
+    render();
+}
+
+function openNewSpaceModal() {
+    const modal = document.getElementById('new-space-modal');
+    if (!modal) return;
+    modal.classList.remove('hidden');
+    setTimeout(() => {
+        const input = document.getElementById('new-space-input');
+        if (input) { input.value = ''; input.focus(); }
+    }, 50);
+}
+
+function closeNewSpaceModal() {
+    const modal = document.getElementById('new-space-modal');
+    if (modal) modal.classList.add('hidden');
+}
+
+async function confirmNewSpace() {
+    const input = document.getElementById('new-space-input');
+    if (!input) return;
+    const name = input.value.trim().toUpperCase();
+    if (!name) return;
+    closeNewSpaceModal();
+    const created = await supabase('POST', SPACES_TABLE, { name });
+    if (created[0]) {
+        spacesState.push(created[0]);
+        activeSpaceId = created[0].id;
+        render();
+    }
+}
+
+// 9. LIVE CLOCK
 function updateClock() {
     const now = new Date();
     const hh = String(now.getHours()).padStart(2, '0');
@@ -425,7 +519,7 @@ function updateClock() {
     if (deskDateEl) deskDateEl.textContent = dateStr;
 }
 
-// 8. MOBILE TAP DETECTION
+// 10. MOBILE TAP DETECTION
 let _didScroll = false;
 document.addEventListener('touchstart', () => { _didScroll = false; }, { passive: true });
 document.addEventListener('touchmove', () => { _didScroll = true; }, { passive: true });
@@ -434,7 +528,7 @@ function isTap(event) {
     return !_didScroll;
 }
 
-// 9. INIT
+// 11. INIT
 window.onload = async () => {
     updateClock();
     setInterval(updateClock, 15000);
@@ -442,7 +536,7 @@ window.onload = async () => {
     const board = document.getElementById('mobile-board');
     if (board) board.addEventListener('scroll', updateActiveColumn, { passive: true });
 
-    await loadTasks();
+    await Promise.all([loadSpaces(), loadTasks()]);
     render();
     updateActiveColumn();
 };
