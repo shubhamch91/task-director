@@ -27,7 +27,7 @@ async function supabase(method, path, body = null) {
 }
 
 // 1. IN-MEMORY STATE
-const DB_TABLE = 'tasks';
+const DB_TABLE = 'tasks_dev';
 let taskState = [];
 let editingTaskId = null;
 let editDraft = '';
@@ -56,52 +56,63 @@ function renderDesktop(tasks) {
 
     tasks.forEach(task => {
         const isEditing = editingTaskId === task.id;
+        const moveLabel = task.status === 'done' ? 'Reset' : 'Move';
 
         let cardInner;
         if (isEditing) {
             cardInner = `
-                <div class="flex justify-between text-[10px] text-gray-500 mb-3">
-                    <span>#${task.task_number}</span>
-                </div>
-                <input id="edit-input-${task.id}"
-                    class="w-full bg-transparent border border-m7-neon text-m7-neon px-2 py-1 text-xs font-bold mb-3 outline-none uppercase"
-                    value="${task.description}"
-                    oninput="editDraft = this.value"
-                    onchange="editDraft = this.value"
-                    onblur="editDraft = this.value"
-                    onkeydown="if(event.key==='Enter'){event.preventDefault();saveInlineEdit('${task.id}');}else if(event.key==='Escape')cancelInlineEdit()">
-                <div class="flex gap-2">
-                    <button draggable="false" class="flex-1 bg-m7-neon text-black text-[10px] py-2 uppercase font-bold" onclick="saveInlineEdit('${task.id}')">Save</button>
-                    <button draggable="false" class="flex-1 bg-m7-gray text-[10px] py-2 uppercase hover:bg-gray-700" onclick="cancelInlineEdit()">Cancel</button>
+                <div class="p-3 flex flex-col h-full justify-between">
+                    <div class="flex justify-between text-[9px] text-gray-500">
+                        <span>#${task.task_number}</span>
+                    </div>
+                    <div class="flex items-center">
+                        <input id="edit-input-${task.id}"
+                            class="w-full bg-transparent border border-m7-neon text-m7-neon px-2 py-0.5 text-[11px] font-mono outline-none uppercase focus:ring-0 leading-tight h-[22px]"
+                            value="${task.description}"
+                            oninput="editDraft = this.value"
+                            onchange="editDraft = this.value"
+                            onblur="editDraft = this.value"
+                            onkeydown="if(event.key==='Enter'){event.preventDefault();saveInlineEdit('${task.id}');}else if(event.key==='Escape')cancelInlineEdit()">
+                    </div>
+                    <div class="flex items-center gap-1.5 h-7">
+                        <button draggable="false" class="flex-1 bg-m7-neon text-black font-bold text-[9px] h-full uppercase hover:bg-m7-neon/90"
+                                onclick="saveInlineEdit('${task.id}')">Save</button>
+                        <button draggable="false" class="flex-1 border border-m7-gray text-gray-500 text-[9px] h-full uppercase hover:bg-m7-gray"
+                                onclick="cancelInlineEdit()">Cancel</button>
+                    </div>
                 </div>`;
         } else {
-            const moveButton = task.status !== 'done'
-                ? `<button draggable="false" class="flex-1 bg-m7-gray text-[10px] py-2 uppercase hover:bg-gray-700" onclick="moveTask('${task.id}', '${task.status}')">Move</button>`
-                : '';
             cardInner = `
-                <div class="flex justify-between text-[10px] text-gray-500 mb-3">
-                    <span>#${task.task_number}</span>
-                </div>
-                <p class="text-xs font-bold mb-4 tracking-tighter">${task.description}</p>
-                <div class="flex gap-2">
-                    ${moveButton}
-                    <button draggable="false" class="p-2 bg-m7-dark-gray hover:bg-gray-700 transition-colors border border-gray-700" onclick="enterInlineEdit('${task.id}')">
-                        <svg class="h-4 w-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
-                        </svg>
-                    </button>
-                    <button draggable="false" class="p-2 bg-m7-dark-gray hover:bg-red-900/20 transition-colors border border-red-500" onclick="deleteTask('${task.id}')">
-                        <svg class="h-4 w-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
-                        </svg>
-                    </button>
+                <div class="p-3 flex flex-col h-full justify-between">
+                    <div class="flex justify-between text-[9px] text-gray-500">
+                        <span>#${task.task_number}</span>
+                    </div>
+                    <div class="flex items-center">
+                        <p class="text-[11px] font-bold tracking-tight leading-snug uppercase truncate w-full" title="${task.description}">${task.description}</p>
+                    </div>
+                    <div class="flex items-center gap-1.5 h-7">
+                        <button draggable="false" class="flex-1 bg-m7-gray text-[9px] h-full uppercase hover:bg-gray-700 transition-colors"
+                                onclick="moveTask('${task.id}', '${task.status}')">${moveLabel}</button>
+                        <button draggable="false" class="w-7 h-7 flex items-center justify-center bg-m7-dark-gray hover:bg-m7-gray transition-colors border border-m7-border text-gray-500 hover:text-m7-neon"
+                                onclick="enterInlineEdit('${task.id}')" title="Edit Task">
+                            <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+                            </svg>
+                        </button>
+                        <button draggable="false" class="w-7 h-7 flex items-center justify-center bg-m7-dark-gray hover:bg-red-900/20 transition-colors border border-red-500/30"
+                                onclick="deleteTask('${task.id}')">
+                            <svg class="h-3.5 w-3.5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+                            </svg>
+                        </button>
+                    </div>
                 </div>`;
         }
 
         const dropClass = task.id === lastDroppedId ? 'card-just-dropped' : '';
 
         const cardHTML = `
-            <div class="task-card border-m7 p-4 bg-m7-dark-gray hover:border-gray-500 transition-colors ${isEditing ? 'cursor-default' : 'cursor-grab active:cursor-grabbing'} ${dropClass}"
+            <div class="task-card border-m7 bg-m7-dark-gray hover:border-gray-500 transition-colors ${isEditing ? 'cursor-default' : 'cursor-grab active:cursor-grabbing'} ${dropClass}"
                  data-id="${task.id}"
                  draggable="${!isEditing}"
                  ondragstart="handleDragStart(event, '${task.id}')"
@@ -207,21 +218,35 @@ function updateMobileStats(tasks) {
         tasks.filter(t => t.status === 'done').length,
     ];
     const total = counts.reduce((a, b) => a + b, 0) || 1;
+    const distColors = ['#22d3ee', '#00ff7f', '#6b7280'];
 
+    // Mobile
     for (let i = 0; i < 3; i++) {
         const el = document.getElementById(`mob-count-${i}`);
         if (el) el.textContent = String(counts[i]).padStart(2, '0');
         const wm = document.getElementById(`mob-wm-${i}`);
         if (wm) wm.textContent = counts[i];
     }
-
-    const distColors = ['#22d3ee', '#00ff7f', '#6b7280'];
-    const dist = document.getElementById('mob-dist');
-    if (dist) {
-        dist.innerHTML = distColors.map((color, i) => {
+    const mobDist = document.getElementById('mob-dist');
+    if (mobDist) {
+        mobDist.innerHTML = distColors.map((color, i) => {
             const grow = Math.max(counts[i] / total, 0.035);
             const opacity = i === 2 ? '0.55' : '1';
             return `<div style="flex: ${grow}; background: ${color}; opacity: ${opacity};"></div>`;
+        }).join('');
+    }
+
+    // Desktop
+    for (let i = 0; i < 3; i++) {
+        const el = document.getElementById(`desk-count-${i}`);
+        if (el) el.textContent = String(counts[i]).padStart(2, '0');
+    }
+    const deskDist = document.getElementById('desk-dist');
+    if (deskDist) {
+        deskDist.innerHTML = distColors.map((color, i) => {
+            const grow = Math.max(counts[i] / total, 0.035);
+            const opacity = i === 2 ? '0.4' : '1';
+            return `<div class="dist-segment" style="flex: ${grow}; background: ${color}; opacity: ${opacity};"></div>`;
         }).join('');
     }
 }
@@ -386,10 +411,18 @@ function updateClock() {
     const mm = String(now.getMinutes()).padStart(2, '0');
     const days = ['SUN','MON','TUE','WED','THU','FRI','SAT'];
     const months = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
-    const timeEl = document.getElementById('mob-time');
-    const dateEl = document.getElementById('mob-date');
-    if (timeEl) timeEl.textContent = `${hh}:${mm}`;
-    if (dateEl) dateEl.textContent = `${days[now.getDay()]} ${now.getDate()} ${months[now.getMonth()]}`;
+    const timeStr = `${hh}:${mm}`;
+    const dateStr = `${days[now.getDay()]} ${now.getDate()} ${months[now.getMonth()]}`;
+
+    const mobTimeEl = document.getElementById('mob-time');
+    const mobDateEl = document.getElementById('mob-date');
+    if (mobTimeEl) mobTimeEl.textContent = timeStr;
+    if (mobDateEl) mobDateEl.textContent = dateStr;
+
+    const deskTimeEl = document.getElementById('desk-time');
+    const deskDateEl = document.getElementById('desk-date');
+    if (deskTimeEl) deskTimeEl.textContent = timeStr;
+    if (deskDateEl) deskDateEl.textContent = dateStr;
 }
 
 // 8. MOBILE TAP DETECTION

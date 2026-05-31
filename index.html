@@ -54,6 +54,12 @@
         .mob-btn-edit:active { background: #1a1a1a; color: #00ff7f; border-color: #00ff7f; }
 
         .card-just-dropped { transition: transform 0.25s ease-out; }
+
+        /* ===== DESKTOP CARD ===== */
+        .task-card { height: 100px; display: flex; flex-direction: column; overflow: hidden; position: relative; }
+
+        /* Distribution bar segments transition */
+        .dist-segment { transition: flex 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
     </style>
 </head>
 <body>
@@ -76,11 +82,40 @@
         </aside>
 
         <main class="flex-1 bg-dots relative flex flex-col p-8 overflow-y-auto">
+
+            <!-- STATUS READOUT -->
+            <section class="mb-6">
+                <div class="border-m7 p-6 bg-m7-black/50 backdrop-blur-sm">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="flex gap-12">
+                            <div class="flex flex-col">
+                                <span class="text-3xl font-bold leading-none text-cyan-400 tracking-tighter" id="desk-count-0">00</span>
+                                <span class="text-[9px] text-gray-500 tracking-[0.2em] mt-1 uppercase">Backlog</span>
+                            </div>
+                            <div class="flex flex-col">
+                                <span class="text-3xl font-bold leading-none text-m7-neon tracking-tighter" id="desk-count-1">00</span>
+                                <span class="text-[9px] text-gray-500 tracking-[0.2em] mt-1 uppercase">In Progress</span>
+                            </div>
+                            <div class="flex flex-col">
+                                <span class="text-3xl font-bold leading-none text-gray-500 tracking-tighter" id="desk-count-2">00</span>
+                                <span class="text-[9px] text-gray-500 tracking-[0.2em] mt-1 uppercase">Done</span>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-[10px] text-gray-600 tracking-[0.1em] uppercase" id="desk-date">SYSTEM ONLINE</div>
+                            <div class="text-xl font-bold text-gray-400 tracking-widest mt-1" id="desk-time">00:00</div>
+                        </div>
+                    </div>
+                    <div class="flex gap-[2px] h-2 w-full bg-m7-dark-gray/50 border border-m7-border/30" id="desk-dist"></div>
+                </div>
+            </section>
+
+            <!-- CREATE TASK -->
             <section class="mb-10">
                 <div class="border-m7 p-6 bg-m7-black/50 backdrop-blur-sm">
                     <label class="block text-xs text-gray-500 mb-2 uppercase tracking-widest">Input New Task</label>
                     <div class="flex gap-4">
-                        <input id="task-input" oninput="document.getElementById('create-btn').disabled = this.value.trim() === ''" onkeydown="if(event.key==='Enter') createNewTask()" class="flex-1 bg-transparent border-m7 text-m7-neon placeholder:text-gray-700 focus:ring-1 focus:ring-m7-neon focus:border-m7-neon px-4 py-3 text-sm" placeholder="ENTER TASK..." type="text">
+                        <input id="task-input" oninput="document.getElementById('create-btn').disabled = this.value.trim() === ''" onkeydown="if(event.key==='Enter') createNewTask()" class="flex-1 bg-transparent border-m7 text-m7-neon placeholder:text-gray-700 focus:ring-1 focus:ring-m7-neon focus:border-m7-neon px-4 py-3 text-sm font-mono uppercase" placeholder="ENTER TASK..." type="text">
                         <button id="create-btn" onclick="createNewTask()" disabled class="bg-m7-neon text-black px-6 py-3 font-bold flex items-center gap-2 hover:bg-m7-neon/90 transition-all text-xs tracking-widest disabled:opacity-30 disabled:cursor-not-allowed">
                             CREATE
                         </button>
@@ -88,35 +123,36 @@
                 </div>
             </section>
 
+            <!-- KANBAN COLUMNS -->
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 flex-1">
-                <section class="flex flex-col border-m7 p-4 bg-m7-black/30" ondragover="handleDragOver(event)" ondrop="handleDrop(event, 'backlog')">
+                <section class="flex flex-col border-m7 p-4 bg-m7-black/30">
                     <header class="flex justify-between items-center mb-6">
                         <div class="flex items-center gap-2">
                             <span class="w-3 h-3 bg-cyan-400"></span>
                             <h3 class="font-bold text-sm tracking-widest uppercase">Backlog</h3>
                         </div>
                     </header>
-                    <div class="space-y-4 min-h-[400px]" id="backlog-container" data-status="backlog"></div>
+                    <div class="space-y-4 min-h-[400px]" id="backlog-container" data-status="backlog" ondragover="handleDragOver(event)" ondrop="handleDrop(event, 'backlog')"></div>
                 </section>
 
-                <section class="flex flex-col border-m7 p-4 bg-m7-black/30" ondragover="handleDragOver(event)" ondrop="handleDrop(event, 'in-progress')">
+                <section class="flex flex-col border-m7 p-4 bg-m7-black/30">
                     <header class="flex justify-between items-center mb-6">
                         <div class="flex items-center gap-2">
                             <span class="w-3 h-3 bg-m7-neon"></span>
                             <h3 class="font-bold text-sm tracking-widest uppercase">In Progress</h3>
                         </div>
                     </header>
-                    <div class="space-y-4 min-h-[400px]" id="inprogress-container" data-status="in-progress"></div>
+                    <div class="space-y-4 min-h-[400px]" id="inprogress-container" data-status="in-progress" ondragover="handleDragOver(event)" ondrop="handleDrop(event, 'in-progress')"></div>
                 </section>
 
-                <section class="flex flex-col border-m7 p-4 bg-m7-black/30" ondragover="handleDragOver(event)" ondrop="handleDrop(event, 'done')">
+                <section class="flex flex-col border-m7 p-4 bg-m7-black/30">
                     <header class="flex justify-between items-center mb-6">
                         <div class="flex items-center gap-2">
                             <span class="w-3 h-3 bg-gray-500"></span>
                             <h3 class="font-bold text-sm tracking-widest uppercase">Done</h3>
                         </div>
                     </header>
-                    <div class="space-y-4 min-h-[400px] opacity-50" id="done-container" data-status="done"></div>
+                    <div class="space-y-4 min-h-[400px]" id="done-container" data-status="done" ondragover="handleDragOver(event)" ondrop="handleDrop(event, 'done')"></div>
                 </section>
             </div>
         </main>
