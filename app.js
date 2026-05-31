@@ -27,9 +27,7 @@ async function supabase(method, path, body = null) {
 }
 
 // 1. IN-MEMORY STATE
-const DB_TABLE = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
-    ? 'tasks_dev'
-    : 'tasks';
+const DB_TABLE = window.location.hostname.includes('github.io') ? 'tasks' : 'tasks_dev';
 let taskState = [];
 let editingTaskId = null;
 let editDraft = '';
