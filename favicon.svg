@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="1024" height="1024">
+  <defs>
+    <filter id="glow-lane" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="3" result="b"></feGaussianBlur>
+      <feMerge><feMergeNode in="b"></feMergeNode><feMergeNode in="SourceGraphic"></feMergeNode></feMerge>
+    </filter>
+    <filter id="glow-head" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="5" result="b"></feGaussianBlur>
+      <feMerge><feMergeNode in="b"></feMergeNode><feMergeNode in="SourceGraphic"></feMergeNode></feMerge>
+    </filter>
+  </defs>
+
+  
+  <rect width="200" height="200" fill="#0a0a0a"></rect>
+
+  
+  <rect x="16" y="74" width="142" height="14" fill="#22d3ee" opacity="0.65"></rect>
+
+  
+  <rect x="16" y="93" width="142" height="14" fill="#00ff7f" filter="url(#glow-lane)"></rect>
+
+  
+  <rect x="16" y="112" width="142" height="14" fill="#6b7280" opacity="0.4"></rect>
+
+  
+  <rect x="156" y="66" width="2" height="68" fill="#0a0a0a"></rect>
+
+  
+  <path d="M 158,66 L 184,100 L 158,134 Z" fill="#00ff7f" filter="url(#glow-head)"></path>
+
+  
+  <rect x="16" y="77" width="8" height="8" fill="#22d3ee" opacity="0.9"></rect>
+  <rect x="16" y="96" width="8" height="8" fill="#00ff7f"></rect>
+  <rect x="16" y="115" width="8" height="8" fill="#6b7280" opacity="0.55"></rect>
+
+  
+  <rect x="14" y="74" width="2" height="52" fill="#1e1e1e"></rect>
+</svg>
