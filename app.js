@@ -50,16 +50,16 @@ async function loadSpaces() {
 
 // 2. RENDER BOTH VIEWS
 function render() {
-    // Desktop sees only the active space's tasks; mobile is unchanged for now
-    const desktopTasks = activeSpaceId
+    const filteredTasks = activeSpaceId
         ? taskState.filter(t => t.space_id === activeSpaceId)
         : taskState;
 
-    renderDesktop(desktopTasks);
-    updateDesktopStats(desktopTasks);
+    renderDesktop(filteredTasks);
+    updateDesktopStats(filteredTasks);
     renderSpacesSwitcher();
 
-    renderMobile(taskState);   // mobile untouched until tomorrow's session
+    renderMobile(filteredTasks);
+    renderMobileSpaces();
 }
 
 // ---- DESKTOP ----
@@ -341,14 +341,14 @@ async function createNewTaskMobile() {
     const taskText = inputEl.value.trim();
     if (taskText === '') return;
     const generatedId = crypto.randomUUID();
-    const tempTask = { id: generatedId, description: taskText.toUpperCase(), status: 'backlog', task_number: '...' };
+    const tempTask = { id: generatedId, description: taskText.toUpperCase(), status: 'backlog', task_number: '...', space_id: activeSpaceId };
     taskState.unshift(tempTask); // newest first on mobile
     render();
     inputEl.value = '';
     document.getElementById('mobile-create-btn').disabled = true;
     closeSheet();
     scrollToColumn(0); // jump to backlog
-    const created = await supabase('POST', DB_TABLE, { id: generatedId, description: tempTask.description, status: 'backlog' });
+    const created = await supabase('POST', DB_TABLE, { id: generatedId, description: tempTask.description, status: 'backlog', space_id: activeSpaceId });
     if (created[0]) { tempTask.task_number = created[0].task_number; render(); }
 }
 
@@ -460,6 +460,31 @@ function renderSpacesSwitcher() {
                  onclick="switchSpace('${space.id}')">
                 <span>${space.name}</span>
             </div>${sep}`;
+    }).join('');
+}
+
+function renderMobileSpaces() {
+    const container = document.getElementById('mob-spaces-row');
+    if (!container) return;
+
+    if (spacesState.length === 0) {
+        container.innerHTML = `<span style="font-size: 9px; color: #374151; letter-spacing: 0.2em; text-transform: uppercase; white-space: nowrap;">NO SPACES — HIT + TO CREATE</span>`;
+        return;
+    }
+
+    container.innerHTML = spacesState.map((space, i) => {
+        const isActive = space.id === activeSpaceId;
+        const dot = isActive
+            ? `<span style="width:6px; height:6px; border-radius:50%; background:#00ff7f; box-shadow:0 0 8px rgba(0,255,127,0.7); flex:none; display:inline-block;"></span>`
+            : '';
+        const sep = i < spacesState.length - 1
+            ? `<span style="display:inline-block; width:1px; height:12px; background:#222222; flex:none; margin:0 12px;"></span>`
+            : '';
+        return `<button
+            ontouchend="event.preventDefault(); if(isTap(event)) switchSpace('${space.id}')"
+            onclick="switchSpace('${space.id}')"
+            style="flex:none; display:flex; align-items:center; gap:5px; padding:2px 0; background:none; border:none; cursor:pointer; font-family:inherit; font-size:10px; font-weight:700; letter-spacing:0.2em; text-transform:uppercase; color:${isActive ? '#00ff7f' : '#4b5563'}; white-space:nowrap; touch-action:manipulation;"
+        >${dot}${space.name}</button>${sep}`;
     }).join('');
 }
 

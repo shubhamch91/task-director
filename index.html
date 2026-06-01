@@ -64,6 +64,8 @@
         /* ===== DESKTOP SPACES ===== */
         #desk-spaces-list { scrollbar-width: none; -ms-overflow-style: none; }
         #desk-spaces-list::-webkit-scrollbar { display: none; }
+        #mob-spaces-row { scrollbar-width: none; -ms-overflow-style: none; }
+        #mob-spaces-row::-webkit-scrollbar { display: none; }
     </style>
 </head>
 <body>
@@ -193,7 +195,13 @@
 
     <!-- Header / readout -->
     <div style="flex: none; padding: 14px 18px 14px; border-bottom: 1px solid #222;">
-        <div style="font-size: 13px; font-weight: 700; letter-spacing: 0.02em; white-space: nowrap; margin-bottom: 14px; color: #e5e7eb;">TASK DIRECTOR</div>
+        <div style="font-size: 13px; font-weight: 700; letter-spacing: 0.02em; white-space: nowrap; margin-bottom: 10px; color: #e5e7eb;">TASK DIRECTOR</div>
+
+        <!-- Spaces row -->
+        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
+            <div id="mob-spaces-row" style="display: flex; align-items: center; overflow-x: auto; flex: 1; -webkit-overflow-scrolling: touch;"></div>
+            <button onclick="openNewSpaceModal()" style="flex: none; width: 22px; height: 22px; border: 1px solid #222; background: none; color: #6b7280; cursor: pointer; display: flex; align-items: center; justify-content: center; font-family: inherit; font-size: 16px; font-weight: 700; line-height: 1; touch-action: manipulation;">+</button>
+        </div>
 
         <!-- Distribution bar -->
         <div id="mob-dist" style="display: flex; gap: 3px; height: 8px; margin-bottom: 12px;"></div>
