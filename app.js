@@ -533,8 +533,15 @@ function handleDrop(event, targetStatus) {
         taskOrder[oldStatus] = (taskOrder[oldStatus] || []).filter(id => id !== taskId);
     }
 
-    // Apply new order and persist to DB
-    if (newOrder) taskOrder[newStatus] = newOrder;
+    // Merge current-space new order with other spaces' tasks (which aren't visible
+    // in the DOM but must stay in taskOrder so persistColumnOrder doesn't lose them)
+    if (newOrder) {
+        const otherSpaceIds = (taskOrder[newStatus] || []).filter(id => {
+            const t = taskState.find(task => task.id === id);
+            return t && t.space_id !== activeSpaceId;
+        });
+        taskOrder[newStatus] = [...newOrder, ...otherSpaceIds];
+    }
     persistColumnOrder(newStatus);
     if (oldStatus !== newStatus) persistColumnOrder(oldStatus);
 
@@ -875,6 +882,10 @@ window.onload = async () => {
     await Promise.all([loadSpaces(), loadTasks()]);
     await migrateLocalStorageOrder();
     syncTaskOrder();
+    // Re-persist all column orders so any stale cross-space positions are corrected
+    if (taskState.some(t => t.position != null)) {
+        ['backlog', 'in-progress', 'done'].forEach(persistColumnOrder);
+    }
     render();
     updateActiveColumn();
 };
