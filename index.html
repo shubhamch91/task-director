@@ -62,6 +62,16 @@
 
         .card-just-dropped { transition: transform 0.25s ease-out; }
 
+        /* Drag-and-drop insertion placeholder */
+        .drag-placeholder {
+            height: 100px;
+            border: 1px dashed rgba(0,255,127,0.45);
+            background: rgba(0,255,127,0.03);
+            box-sizing: border-box;
+            pointer-events: none;
+            flex-shrink: 0;
+        }
+
         /* ===== DESKTOP CARD ===== */
         .task-card { height: 100px; display: flex; flex-direction: column; overflow: hidden; position: relative; }
 

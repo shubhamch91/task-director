@@ -35,6 +35,9 @@ let spacesState    = [];
 let activeSpaceId  = null;
 let editingTaskId  = null;
 let managingSpaceId = null;
+let taskOrder      = (() => { try { return JSON.parse(localStorage.getItem('td_task_order')) || {}; } catch { return {}; } })();
+let dragPlaceholder = null;
+let draggingId      = null;
 let editDraft      = '';
 let lastDroppedId  = null;
 
@@ -63,6 +66,38 @@ function render() {
     renderMobileSpaces();
 }
 
+// ---- TASK ORDER (manual column positions, persisted to localStorage) ----
+function saveTaskOrder() {
+    try { localStorage.setItem('td_task_order', JSON.stringify(taskOrder)); } catch {}
+}
+
+function syncTaskOrder() {
+    ['backlog', 'in-progress', 'done'].forEach(status => {
+        if (!Array.isArray(taskOrder[status])) taskOrder[status] = [];
+        const inStatus = taskState.filter(t => t.status === status).map(t => t.id);
+        // Preserve manual order, drop deleted tasks
+        taskOrder[status] = taskOrder[status].filter(id => inStatus.includes(id));
+        // Append any new tasks not yet in order, sorted by task_number
+        const unordered = inStatus
+            .filter(id => !taskOrder[status].includes(id))
+            .sort((a, b) => {
+                const ta = taskState.find(t => t.id === a);
+                const tb = taskState.find(t => t.id === b);
+                return (ta?.task_number ?? 0) - (tb?.task_number ?? 0);
+            });
+        taskOrder[status].push(...unordered);
+    });
+    saveTaskOrder();
+}
+
+function orderedForRender(tasks, status) {
+    const order = taskOrder[status] || [];
+    const inStatus = tasks.filter(t => t.status === status);
+    const ordered = order.map(id => inStatus.find(t => t.id === id)).filter(Boolean);
+    const rest = inStatus.filter(t => !order.includes(t.id));
+    return [...ordered, ...rest];
+}
+
 // ---- DESKTOP ----
 function renderDesktop(tasks) {
     const backlogCol = document.getElementById('backlog-container');
@@ -74,7 +109,12 @@ function renderDesktop(tasks) {
     inprogressCol.innerHTML = '';
     doneCol.innerHTML = '';
 
-    tasks.forEach(task => {
+    const orderedTasks = [
+        ...orderedForRender(tasks, 'backlog'),
+        ...orderedForRender(tasks, 'in-progress'),
+        ...orderedForRender(tasks, 'done'),
+    ];
+    orderedTasks.forEach(task => {
         const isEditing = editingTaskId === task.id;
         const moveLabel = task.status === 'done' ? 'Reset' : 'Move';
 
@@ -137,8 +177,7 @@ function renderDesktop(tasks) {
                  draggable="${!isEditing}"
                  ondragstart="handleDragStart(event, '${task.id}')"
                  ondragend="handleDragEnd(event)"
-                 ondragover="handleDragOver(event)"
-                 ondrop="handleCardDrop(event)">
+                 ondragover="handleDragOver(event)">
                 ${cardInner}
             </div>`;
 
@@ -313,12 +352,23 @@ async function moveTask(taskId, currentStatus) {
     const next = { backlog: 'in-progress', 'in-progress': 'done', done: 'backlog' };
     const newStatus = next[currentStatus];
     const task = taskState.find(t => t.id === taskId);
-    if (task) { task.status = newStatus; render(); }
+    if (task) {
+        task.status = newStatus;
+        taskOrder[currentStatus] = (taskOrder[currentStatus] || []).filter(id => id !== taskId);
+        taskOrder[newStatus] = taskOrder[newStatus] || [];
+        taskOrder[newStatus].push(taskId);
+        saveTaskOrder();
+        render();
+    }
     supabase('PATCH', `${DB_TABLE}?id=eq.${encodeURIComponent(taskId)}`, { status: newStatus });
 }
 
 async function deleteTask(taskId) {
     taskState = taskState.filter(t => t.id !== taskId);
+    ['backlog', 'in-progress', 'done'].forEach(s => {
+        taskOrder[s] = (taskOrder[s] || []).filter(id => id !== taskId);
+    });
+    saveTaskOrder();
     render();
     supabase('DELETE', `${DB_TABLE}?id=eq.${encodeURIComponent(taskId)}`);
 }
@@ -330,6 +380,9 @@ async function createNewTask() {
     const generatedId = crypto.randomUUID();
     const tempTask = { id: generatedId, description: taskText.toUpperCase(), status: 'backlog', task_number: '...', space_id: activeSpaceId };
     taskState.push(tempTask);
+    taskOrder.backlog = taskOrder.backlog || [];
+    taskOrder.backlog.unshift(generatedId);
+    saveTaskOrder();
     render();
     inputElement.value = '';
     document.getElementById('create-btn').disabled = true;
@@ -343,7 +396,10 @@ async function createNewTaskMobile() {
     if (taskText === '') return;
     const generatedId = crypto.randomUUID();
     const tempTask = { id: generatedId, description: taskText.toUpperCase(), status: 'backlog', task_number: '...', space_id: activeSpaceId };
-    taskState.unshift(tempTask); // newest first on mobile
+    taskState.unshift(tempTask);
+    taskOrder.backlog = taskOrder.backlog || [];
+    taskOrder.backlog.unshift(generatedId);
+    saveTaskOrder();
     render();
     inputEl.value = '';
     document.getElementById('mobile-create-btn').disabled = true;
@@ -355,49 +411,108 @@ async function createNewTaskMobile() {
 
 // 4. DESKTOP DRAG AND DROP
 function handleDragStart(event, taskId) {
+    draggingId = taskId;
     event.dataTransfer.setData('text/plain', taskId);
-    setTimeout(() => { event.target.style.opacity = '0'; }, 0);
-}
-function handleDragEnd(event) { event.target.style.opacity = '1'; }
-function handleDragOver(event) { event.preventDefault(); }
 
-function applyDrop(taskId, targetStatus, dropY) {
+    dragPlaceholder = document.createElement('div');
+    dragPlaceholder.className = 'drag-placeholder';
+
+    setTimeout(() => {
+        const card = document.querySelector(`.task-card[data-id="${taskId}"]`);
+        if (card) {
+            card.style.opacity = '0';
+            if (card.parentNode) card.parentNode.insertBefore(dragPlaceholder, card.nextSibling);
+        }
+    }, 0);
+}
+
+function handleDragEnd(event) {
+    const card = document.querySelector(`.task-card[data-id="${draggingId}"]`);
+    if (card) card.style.opacity = '1';
+    if (dragPlaceholder && dragPlaceholder.parentNode) dragPlaceholder.parentNode.removeChild(dragPlaceholder);
+    dragPlaceholder = null;
+    draggingId = null;
+}
+
+function handleDragOver(event) {
+    event.preventDefault();
+    if (!dragPlaceholder || !draggingId) return;
+
+    const card = event.target.closest('.task-card');
+    const container = event.target.closest('[data-status]');
+    if (!container) return;
+
+    if (card && card.dataset.id !== draggingId) {
+        const rect = card.getBoundingClientRect();
+        const before = event.clientY < rect.top + rect.height / 2;
+        const ref = before ? card : card.nextSibling;
+        if (dragPlaceholder.nextSibling !== ref && dragPlaceholder !== ref) {
+            container.insertBefore(dragPlaceholder, ref || null);
+        }
+    } else if (!card || card.dataset.id === draggingId) {
+        if (dragPlaceholder.parentNode !== container) container.appendChild(dragPlaceholder);
+        else if (!card && container.lastChild !== dragPlaceholder) container.appendChild(dragPlaceholder);
+    }
+}
+
+function handleDrop(event, targetStatus) {
+    event.preventDefault();
+    const taskId = event.dataTransfer.getData('text/plain');
+    if (!taskId) return;
+
     const task = taskState.find(t => t.id === taskId);
     if (!task) return;
-    task.status = targetStatus;
+
+    const oldStatus = task.status;
+    let newStatus = targetStatus;
+    let newOrder = null;
+
+    // Read insertion position from placeholder's current DOM location
+    if (dragPlaceholder && dragPlaceholder.parentNode) {
+        const container = dragPlaceholder.parentNode;
+        newStatus = container.dataset.status || targetStatus;
+        newOrder = [];
+        for (const child of container.children) {
+            if (child.classList.contains('drag-placeholder')) newOrder.push(taskId);
+            else if (child.dataset.id && child.dataset.id !== taskId) newOrder.push(child.dataset.id);
+        }
+        if (!newOrder.includes(taskId)) newOrder.push(taskId);
+    }
+
+    // Update task status
+    if (task.status !== newStatus) {
+        task.status = newStatus;
+        supabase('PATCH', `${DB_TABLE}?id=eq.${encodeURIComponent(taskId)}`, { status: newStatus });
+    }
+
+    // Remove from old column order when changing columns
+    if (oldStatus !== newStatus) {
+        taskOrder[oldStatus] = (taskOrder[oldStatus] || []).filter(id => id !== taskId);
+    }
+
+    // Apply new order
+    if (newOrder) taskOrder[newStatus] = newOrder;
+    saveTaskOrder();
+
     lastDroppedId = taskId;
+    const dropY = event.clientY;
     render();
 
-    // Animate from drop position to final position
     const cardEl = document.querySelector(`.task-card[data-id="${taskId}"]`);
     if (cardEl && dropY != null) {
         const finalTop = cardEl.getBoundingClientRect().top;
         const offset = dropY - finalTop;
-        cardEl.style.transition = 'none';
-        cardEl.style.transform = `translateY(${offset}px)`;
-        requestAnimationFrame(() => {
-            requestAnimationFrame(() => {
-                cardEl.style.transition = 'transform 0.28s ease-out';
+        if (Math.abs(offset) > 4) {
+            cardEl.style.transition = 'none';
+            cardEl.style.transform = `translateY(${offset}px)`;
+            requestAnimationFrame(() => requestAnimationFrame(() => {
+                cardEl.style.transition = 'transform 0.25s ease-out';
                 cardEl.style.transform = 'translateY(0)';
-            });
-        });
+            }));
+        }
     }
 
     setTimeout(() => { lastDroppedId = null; }, 300);
-    supabase('PATCH', `${DB_TABLE}?id=eq.${encodeURIComponent(taskId)}`, { status: targetStatus });
-}
-function handleDrop(event, targetStatus) {
-    event.preventDefault();
-    const taskId = event.dataTransfer.getData('text/plain');
-    if (taskId) applyDrop(taskId, targetStatus, event.clientY);
-}
-function handleCardDrop(event) {
-    event.preventDefault();
-    event.stopPropagation();
-    const taskId = event.dataTransfer.getData('text/plain');
-    if (!taskId) return;
-    const container = event.currentTarget.closest('[data-status]');
-    if (container) applyDrop(taskId, container.dataset.status, event.clientY);
 }
 
 // 5. MOBILE SHEET
@@ -714,6 +829,7 @@ window.onload = async () => {
     if (board) board.addEventListener('scroll', updateActiveColumn, { passive: true });
 
     await Promise.all([loadSpaces(), loadTasks()]);
+    syncTaskOrder();
     render();
     updateActiveColumn();
 };
