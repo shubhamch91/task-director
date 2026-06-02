@@ -35,7 +35,7 @@ let spacesState    = [];
 let activeSpaceId  = null;
 let editingTaskId  = null;
 let managingSpaceId = null;
-let taskOrder      = (() => { try { return JSON.parse(localStorage.getItem('td_task_order')) || {}; } catch { return {}; } })();
+let taskOrder      = {};
 let dragPlaceholder = null;
 let draggingId      = null;
 let editDraft      = '';
@@ -66,28 +66,48 @@ function render() {
     renderMobileSpaces();
 }
 
-// ---- TASK ORDER (manual column positions, persisted to localStorage) ----
-function saveTaskOrder() {
-    try { localStorage.setItem('td_task_order', JSON.stringify(taskOrder)); } catch {}
-}
-
+// ---- TASK ORDER (manual column positions, persisted to Supabase) ----
 function syncTaskOrder() {
     ['backlog', 'in-progress', 'done'].forEach(status => {
-        if (!Array.isArray(taskOrder[status])) taskOrder[status] = [];
-        const inStatus = taskState.filter(t => t.status === status).map(t => t.id);
-        // Preserve manual order, drop deleted tasks
-        taskOrder[status] = taskOrder[status].filter(id => inStatus.includes(id));
-        // Append any new tasks not yet in order, sorted by task_number
-        const unordered = inStatus
-            .filter(id => !taskOrder[status].includes(id))
-            .sort((a, b) => {
-                const ta = taskState.find(t => t.id === a);
-                const tb = taskState.find(t => t.id === b);
-                return (ta?.task_number ?? 0) - (tb?.task_number ?? 0);
-            });
-        taskOrder[status].push(...unordered);
+        const inStatus = taskState.filter(t => t.status === status);
+        inStatus.sort((a, b) => {
+            const pa = a.position ?? Infinity;
+            const pb = b.position ?? Infinity;
+            if (pa !== pb) return pa - pb;
+            return (a.task_number ?? 0) - (b.task_number ?? 0);
+        });
+        taskOrder[status] = inStatus.map(t => t.id);
     });
-    saveTaskOrder();
+}
+
+function persistColumnOrder(status) {
+    const ids = taskOrder[status] || [];
+    ids.forEach((id, index) => {
+        const task = taskState.find(t => t.id === id);
+        if (task) task.position = index;
+        supabase('PATCH', `${DB_TABLE}?id=eq.${encodeURIComponent(id)}`, { position: index });
+    });
+}
+
+async function migrateLocalStorageOrder() {
+    const allNull = taskState.every(t => t.position == null);
+    if (!allNull) return;
+    const stored = localStorage.getItem('td_task_order');
+    if (!stored) return;
+    try {
+        const localOrder = JSON.parse(stored);
+        for (const [status, ids] of Object.entries(localOrder)) {
+            if (!Array.isArray(ids)) continue;
+            for (let i = 0; i < ids.length; i++) {
+                const task = taskState.find(t => t.id === ids[i]);
+                if (task) {
+                    task.position = i;
+                    await supabase('PATCH', `${DB_TABLE}?id=eq.${encodeURIComponent(ids[i])}`, { position: i });
+                }
+            }
+        }
+        localStorage.removeItem('td_task_order');
+    } catch (e) { console.warn('Position migration failed', e); }
 }
 
 function orderedForRender(tasks, status) {
@@ -357,7 +377,8 @@ async function moveTask(taskId, currentStatus) {
         taskOrder[currentStatus] = (taskOrder[currentStatus] || []).filter(id => id !== taskId);
         taskOrder[newStatus] = taskOrder[newStatus] || [];
         taskOrder[newStatus].push(taskId);
-        saveTaskOrder();
+        persistColumnOrder(currentStatus);
+        persistColumnOrder(newStatus);
         render();
     }
     supabase('PATCH', `${DB_TABLE}?id=eq.${encodeURIComponent(taskId)}`, { status: newStatus });
@@ -368,7 +389,6 @@ async function deleteTask(taskId) {
     ['backlog', 'in-progress', 'done'].forEach(s => {
         taskOrder[s] = (taskOrder[s] || []).filter(id => id !== taskId);
     });
-    saveTaskOrder();
     render();
     supabase('DELETE', `${DB_TABLE}?id=eq.${encodeURIComponent(taskId)}`);
 }
@@ -378,16 +398,15 @@ async function createNewTask() {
     const taskText = inputElement.value.trim();
     if (taskText === '') return;
     const generatedId = crypto.randomUUID();
-    const tempTask = { id: generatedId, description: taskText.toUpperCase(), status: 'backlog', task_number: '...', space_id: activeSpaceId };
+    const tempTask = { id: generatedId, description: taskText.toUpperCase(), status: 'backlog', task_number: '...', space_id: activeSpaceId, position: null };
     taskState.push(tempTask);
     taskOrder.backlog = taskOrder.backlog || [];
     taskOrder.backlog.unshift(generatedId);
-    saveTaskOrder();
     render();
     inputElement.value = '';
     document.getElementById('create-btn').disabled = true;
     const created = await supabase('POST', DB_TABLE, { id: generatedId, description: tempTask.description, status: 'backlog', space_id: activeSpaceId });
-    if (created[0]) { tempTask.task_number = created[0].task_number; render(); }
+    if (created[0]) { tempTask.task_number = created[0].task_number; persistColumnOrder('backlog'); render(); }
 }
 
 async function createNewTaskMobile() {
@@ -395,18 +414,17 @@ async function createNewTaskMobile() {
     const taskText = inputEl.value.trim();
     if (taskText === '') return;
     const generatedId = crypto.randomUUID();
-    const tempTask = { id: generatedId, description: taskText.toUpperCase(), status: 'backlog', task_number: '...', space_id: activeSpaceId };
+    const tempTask = { id: generatedId, description: taskText.toUpperCase(), status: 'backlog', task_number: '...', space_id: activeSpaceId, position: null };
     taskState.unshift(tempTask);
     taskOrder.backlog = taskOrder.backlog || [];
     taskOrder.backlog.unshift(generatedId);
-    saveTaskOrder();
     render();
     inputEl.value = '';
     document.getElementById('mobile-create-btn').disabled = true;
     closeSheet();
-    scrollToColumn(0); // jump to backlog
+    scrollToColumn(0);
     const created = await supabase('POST', DB_TABLE, { id: generatedId, description: tempTask.description, status: 'backlog', space_id: activeSpaceId });
-    if (created[0]) { tempTask.task_number = created[0].task_number; render(); }
+    if (created[0]) { tempTask.task_number = created[0].task_number; persistColumnOrder('backlog'); render(); }
 }
 
 // 4. DESKTOP DRAG AND DROP
@@ -515,9 +533,10 @@ function handleDrop(event, targetStatus) {
         taskOrder[oldStatus] = (taskOrder[oldStatus] || []).filter(id => id !== taskId);
     }
 
-    // Apply new order
+    // Apply new order and persist to DB
     if (newOrder) taskOrder[newStatus] = newOrder;
-    saveTaskOrder();
+    persistColumnOrder(newStatus);
+    if (oldStatus !== newStatus) persistColumnOrder(oldStatus);
 
     lastDroppedId = taskId;
     const dropY = event.clientY;
@@ -854,6 +873,7 @@ window.onload = async () => {
     if (board) board.addEventListener('scroll', updateActiveColumn, { passive: true });
 
     await Promise.all([loadSpaces(), loadTasks()]);
+    await migrateLocalStorageOrder();
     syncTaskOrder();
     render();
     updateActiveColumn();
