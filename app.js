@@ -34,6 +34,7 @@ let taskState      = [];
 let spacesState    = [];
 let activeSpaceId  = null;
 let editingTaskId  = null;
+let managingSpaceId = null;
 let editDraft      = '';
 let lastDroppedId  = null;
 
@@ -453,6 +454,14 @@ function renderSpacesSwitcher() {
                 <div class="flex items-center gap-1.5 text-m7-neon flex-none">
                     <span class="w-1.5 h-1.5 rounded-full bg-m7-neon shadow-[0_0_8px_rgba(0,255,127,0.8)]"></span>
                     <span>${space.name}</span>
+                    <button onclick="openManageSpaceModal('${space.id}')"
+                        style="background:none;border:none;padding:0 2px;cursor:pointer;"
+                        class="text-gray-600 hover:text-gray-400 transition-colors flex items-center">
+                        <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2"
+                             stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+                            <path d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/>
+                        </svg>
+                    </button>
                 </div>${sep}`;
         }
         return `
@@ -480,11 +489,19 @@ function renderMobileSpaces() {
         const sep = i < spacesState.length - 1
             ? `<span style="display:inline-block; width:1px; height:12px; background:#222222; flex:none; margin:0 12px;"></span>`
             : '';
+        const pencil = isActive ? `<button
+            ontouchend="event.preventDefault(); if(isTap(event)) openManageSpaceModal('${space.id}')"
+            onclick="openManageSpaceModal('${space.id}')"
+            style="background:none;border:none;padding:0 2px;cursor:pointer;color:#374151;display:flex;align-items:center;touch-action:manipulation;">
+            <svg width="10" height="10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+                <path d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/>
+            </svg>
+        </button>` : '';
         return `<button
             ontouchend="event.preventDefault(); if(isTap(event)) switchSpace('${space.id}')"
             onclick="switchSpace('${space.id}')"
             style="flex:none; display:flex; align-items:center; gap:5px; padding:2px 0; background:none; border:none; cursor:pointer; font-family:inherit; font-size:10px; font-weight:700; letter-spacing:0.2em; text-transform:uppercase; color:${isActive ? '#00ff7f' : '#4b5563'}; white-space:nowrap; touch-action:manipulation;"
-        >${dot}${space.name}</button>${sep}`;
+        >${dot}${space.name}</button>${pencil}${sep}`;
     }).join('');
 }
 
@@ -500,7 +517,9 @@ function openNewSpaceModal() {
     modal.classList.remove('hidden');
     setTimeout(() => {
         const input = document.getElementById('new-space-input');
+        const btn = document.getElementById('new-space-confirm-btn');
         if (input) { input.value = ''; input.focus(); }
+        if (btn) btn.disabled = true;
     }, 50);
 }
 
@@ -521,6 +540,139 @@ async function confirmNewSpace() {
         activeSpaceId = created[0].id;
         render();
     }
+}
+
+// 8b. MANAGE SPACE (rename / delete)
+
+const isMobile = () => window.innerWidth < 1024;
+
+function openManageSpaceModal(spaceId) {
+    managingSpaceId = spaceId;
+    const space = spacesState.find(s => s.id === spaceId);
+    if (!space) return;
+    const canDelete = spacesState.length > 1;
+
+    if (isMobile()) {
+        document.getElementById('mob-msp-title').textContent = 'MANAGE — ' + space.name;
+        const deleteBtn = document.getElementById('mob-msp-delete-btn');
+        const deleteHint = document.getElementById('mob-msp-delete-hint');
+        if (canDelete) {
+            deleteBtn.style.cssText = 'width:100%;min-height:50px;background:rgba(239,68,68,0.1);border:1px solid #ef4444;color:#ef4444;font-family:inherit;font-size:13px;font-weight:700;letter-spacing:0.18em;text-transform:uppercase;cursor:pointer;touch-action:manipulation;';
+            deleteHint.style.display = 'none';
+        } else {
+            deleteBtn.style.cssText = 'width:100%;min-height:50px;background:transparent;border:1px solid #2a2a2a;color:#374151;font-family:inherit;font-size:13px;font-weight:700;letter-spacing:0.18em;text-transform:uppercase;cursor:not-allowed;opacity:0.4;touch-action:manipulation;';
+            deleteHint.style.display = 'block';
+        }
+        document.getElementById('mob-msp-menu').style.display = 'block';
+        document.getElementById('mob-msp-rename').style.display = 'none';
+        const root = document.getElementById('manage-sheet-root');
+        root.style.pointerEvents = 'auto';
+        document.getElementById('manage-scrim').style.opacity = '1';
+        document.getElementById('manage-sheet').style.transform = 'translateY(0)';
+    } else {
+        document.getElementById('msp-title').textContent = 'MANAGE — ' + space.name;
+        const deleteBtn = document.getElementById('msp-delete-btn');
+        const deleteHint = document.getElementById('msp-delete-hint');
+        if (canDelete) {
+            deleteBtn.className = 'w-full py-3 border border-red-500/50 text-red-500 text-sm font-bold tracking-widest uppercase hover:bg-red-900/20 transition-colors cursor-pointer';
+            deleteHint.classList.add('hidden');
+        } else {
+            deleteBtn.className = 'w-full py-3 border border-m7-border text-gray-600 text-sm font-bold tracking-widest uppercase cursor-not-allowed opacity-40';
+            deleteHint.classList.remove('hidden');
+        }
+        document.getElementById('msp-menu').classList.remove('hidden');
+        document.getElementById('msp-rename').classList.add('hidden');
+        document.getElementById('manage-space-modal').classList.remove('hidden');
+    }
+}
+
+function closeManageSpaceModal() {
+    if (isMobile()) {
+        const root = document.getElementById('manage-sheet-root');
+        root.style.pointerEvents = 'none';
+        document.getElementById('manage-scrim').style.opacity = '0';
+        document.getElementById('manage-sheet').style.transform = 'translateY(110%)';
+    } else {
+        document.getElementById('manage-space-modal').classList.add('hidden');
+    }
+    managingSpaceId = null;
+}
+
+function showManageMenuMode() {
+    if (isMobile()) {
+        document.getElementById('mob-msp-menu').style.display = 'block';
+        document.getElementById('mob-msp-rename').style.display = 'none';
+    } else {
+        document.getElementById('msp-menu').classList.remove('hidden');
+        document.getElementById('msp-rename').classList.add('hidden');
+    }
+}
+
+function showManageRenameMode() {
+    const space = spacesState.find(s => s.id === managingSpaceId);
+    if (isMobile()) {
+        const input = document.getElementById('mob-rename-space-input');
+        const btn = document.getElementById('mob-msp-confirm-btn');
+        if (input && space) { input.value = space.name; }
+        if (btn) {
+            const empty = !input || input.value.trim() === '';
+            btn.disabled = empty;
+            btn.style.opacity = empty ? '0.3' : '1';
+            btn.style.cursor = empty ? 'not-allowed' : 'pointer';
+        }
+        document.getElementById('mob-msp-menu').style.display = 'none';
+        document.getElementById('mob-msp-rename').style.display = 'block';
+        setTimeout(() => {
+            if (input) { input.focus(); input.setSelectionRange(input.value.length, input.value.length); }
+        }, 50);
+    } else {
+        const input = document.getElementById('rename-space-input');
+        const btn = document.getElementById('msp-confirm-btn');
+        if (input && space) { input.value = space.name; }
+        if (btn) btn.disabled = !input || input.value.trim() === '';
+        document.getElementById('msp-menu').classList.add('hidden');
+        document.getElementById('msp-rename').classList.remove('hidden');
+        setTimeout(() => {
+            if (input) { input.focus(); input.setSelectionRange(input.value.length, input.value.length); }
+        }, 50);
+    }
+}
+
+async function confirmRenameSpace() {
+    const input = document.getElementById('rename-space-input');
+    if (!input || !managingSpaceId) return;
+    const name = input.value.trim().toUpperCase();
+    if (!name) return;
+    const space = spacesState.find(s => s.id === managingSpaceId);
+    if (space) space.name = name;
+    render();
+    closeManageSpaceModal();
+    supabase('PATCH', `${SPACES_TABLE}?id=eq.${encodeURIComponent(managingSpaceId)}`, { name });
+}
+
+async function confirmRenameSpaceMobile() {
+    const input = document.getElementById('mob-rename-space-input');
+    if (!input || !managingSpaceId) return;
+    const name = input.value.trim().toUpperCase();
+    if (!name) return;
+    const space = spacesState.find(s => s.id === managingSpaceId);
+    if (space) space.name = name;
+    render();
+    closeManageSpaceModal();
+    supabase('PATCH', `${SPACES_TABLE}?id=eq.${encodeURIComponent(managingSpaceId)}`, { name });
+}
+
+async function confirmDeleteSpace() {
+    if (!managingSpaceId || spacesState.length <= 1) return;
+    const idToDelete = managingSpaceId;
+    taskState = taskState.filter(t => t.space_id !== idToDelete);
+    spacesState = spacesState.filter(s => s.id !== idToDelete);
+    if (activeSpaceId === idToDelete)
+        activeSpaceId = spacesState.length > 0 ? spacesState[0].id : null;
+    render();
+    closeManageSpaceModal();
+    supabase('DELETE', `${SPACES_TABLE}?id=eq.${encodeURIComponent(idToDelete)}`);
+    supabase('DELETE', `${DB_TABLE}?space_id=eq.${encodeURIComponent(idToDelete)}`);
 }
 
 // 9. LIVE CLOCK

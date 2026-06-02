@@ -128,12 +128,6 @@
                                     <span class="text-lg font-bold leading-none">+</span>
                                 </button>
                             </div>
-                            <div class="w-px h-8 bg-m7-border"></div>
-                            <!-- Clock -->
-                            <div class="text-right">
-                                <div class="text-[10px] text-gray-600 tracking-[0.1em] uppercase" id="desk-date">SYSTEM ONLINE</div>
-                                <div class="text-xl font-bold text-gray-400 tracking-widest mt-1" id="desk-time">00:00</div>
-                            </div>
                         </div>
                     </div>
                     <div class="flex gap-[2px] h-2 w-full bg-m7-dark-gray/50 border border-m7-border/30" id="desk-dist"></div>
@@ -194,11 +188,6 @@
      =================================================== -->
 <div id="mobile-view" class="lg:hidden flex flex-col bg-dots" style="height: 100dvh; overflow: hidden; position: relative; background-color: #0a0a0a;">
 
-    <!-- Status bar -->
-    <div style="flex: none; height: 36px; display: flex; align-items: center; justify-content: space-between; padding: 0 18px; border-bottom: 1px solid #222; background: rgba(10,10,10,0.85);">
-        <span id="mob-time" style="font-size: 11px; font-weight: 700; color: #e5e7eb; letter-spacing: 0.04em;"></span>
-        <span id="mob-date" style="font-size: 10px; color: #6b7280; letter-spacing: 0.14em; white-space: nowrap;"></span>
-    </div>
 
     <!-- Header / readout -->
     <div style="flex: none; padding: 14px 18px 14px; border-bottom: 1px solid #222;">
@@ -283,6 +272,37 @@
         </svg>
     </button>
 
+    <!-- Manage space sheet (mobile) -->
+    <div id="manage-sheet-root" style="position: absolute; inset: 0; z-index: 70; pointer-events: none;">
+        <div id="manage-scrim" onclick="closeManageSpaceModal()" style="position: absolute; inset: 0; background: rgba(0,0,0,0.65); backdrop-filter: blur(2px); -webkit-backdrop-filter: blur(2px); opacity: 0; transition: opacity 0.22s;"></div>
+        <div id="manage-sheet" style="position: absolute; left: 0; right: 0; bottom: 0; background: #0c0c0c; border-top: 1px solid #222; padding: 12px 20px 34px; transform: translateY(110%); transition: transform 0.26s cubic-bezier(.2,.8,.2,1);">
+            <div style="width: 40px; height: 4px; background: #2a2a2a; margin: 0 auto 20px;"></div>
+            <!-- Menu mode -->
+            <div id="mob-msp-menu">
+                <div id="mob-msp-title" style="font-size: 12px; color: #6b7280; letter-spacing: 0.18em; text-transform: uppercase; margin-bottom: 20px;">MANAGE — SPACE</div>
+                <div style="display: flex; flex-direction: column; gap: 10px;">
+                    <button onclick="showManageRenameMode()" style="width: 100%; min-height: 50px; background: #2a2a2a; color: #e5e7eb; border: none; font-family: inherit; font-size: 13px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; cursor: pointer; touch-action: manipulation;">RENAME</button>
+                    <button id="mob-msp-delete-btn" onclick="confirmDeleteSpace()" style="width: 100%; min-height: 50px; font-family: inherit; font-size: 13px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; cursor: pointer; touch-action: manipulation;">DELETE SPACE</button>
+                    <p id="mob-msp-delete-hint" style="display: none; font-size: 9px; color: #374151; letter-spacing: 0.18em; text-align: center;">// CANNOT DELETE LAST SPACE</p>
+                </div>
+            </div>
+            <!-- Rename mode -->
+            <div id="mob-msp-rename" style="display: none;">
+                <div style="font-size: 12px; color: #6b7280; letter-spacing: 0.18em; text-transform: uppercase; margin-bottom: 16px;">RENAME SPACE</div>
+                <div style="border: 1px solid #00ff7f; background: rgba(0,255,127,0.04); padding: 0 14px; margin-bottom: 20px;">
+                    <input id="mob-rename-space-input" type="text" placeholder="..."
+                        style="width: 100%; background: transparent; border: none; outline: none; color: #00ff7f; font-family: inherit; font-size: 13px; font-weight: 700; letter-spacing: 0.18em; padding: 15px 0; text-transform: uppercase;"
+                        oninput="var b=document.getElementById('mob-msp-confirm-btn'); b.disabled=this.value.trim()===''; b.style.opacity=this.value.trim()===''?'0.3':'1'; b.style.cursor=this.value.trim()===''?'not-allowed':'pointer';"
+                        onkeydown="if(event.key==='Enter') confirmRenameSpaceMobile(); else if(event.key==='Escape') closeManageSpaceModal()">
+                </div>
+                <div style="display: flex; justify-content: flex-end; gap: 24px; font-size: 10px; letter-spacing: 0.18em;">
+                    <button onclick="closeManageSpaceModal()" style="background: none; border: none; color: #6b7280; font-family: inherit; font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase; cursor: pointer;">[CANCEL]</button>
+                    <button id="mob-msp-confirm-btn" onclick="confirmRenameSpaceMobile()" style="background: none; border: none; color: #00ff7f; font-family: inherit; font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase; cursor: pointer; opacity: 1; transition: opacity 0.15s;">[CONFIRM]</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Create sheet -->
     <div id="create-sheet-root" style="position: absolute; inset: 0; z-index: 60;">
         <div id="create-scrim" onclick="closeSheet()" style="position: absolute; inset: 0; background: rgba(0,0,0,0.65); backdrop-filter: blur(2px); -webkit-backdrop-filter: blur(2px);"></div>
@@ -314,6 +334,51 @@
 </div>
 
 <!-- ===================================================
+     MANAGE SPACE MODAL (desktop)
+     =================================================== -->
+<div id="manage-space-modal" class="hidden fixed inset-0 z-[100] flex items-center justify-center p-4">
+    <div class="absolute inset-0 bg-black/80 backdrop-blur-sm" onclick="closeManageSpaceModal()"></div>
+    <div class="relative w-full max-w-md border-m7 bg-m7-black/50 backdrop-blur-sm p-8">
+        <div class="flex flex-col gap-4 font-mono">
+            <!-- Menu mode -->
+            <div id="msp-menu">
+                <div class="text-xs text-gray-500 tracking-widest uppercase mb-6" id="msp-title">MANAGE — SPACE</div>
+                <div class="flex flex-col gap-3">
+                    <button onclick="showManageRenameMode()"
+                        class="w-full py-3 bg-m7-gray text-sm font-bold tracking-widest uppercase hover:bg-gray-700 transition-colors" style="color:#e5e7eb;">
+                        RENAME
+                    </button>
+                    <button id="msp-delete-btn" onclick="confirmDeleteSpace()"
+                        class="w-full py-3 border text-sm font-bold tracking-widest uppercase transition-colors">
+                        DELETE SPACE
+                    </button>
+                    <p id="msp-delete-hint" class="hidden text-[9px] text-gray-600 tracking-widest text-center">
+                        // CANNOT DELETE LAST SPACE
+                    </p>
+                </div>
+            </div>
+            <!-- Rename mode -->
+            <div id="msp-rename" class="hidden">
+                <div class="text-xs text-gray-500 tracking-widest uppercase mb-4">RENAME SPACE</div>
+                <div class="relative flex items-center mb-6">
+                    <input id="rename-space-input" type="text" placeholder="..."
+                        class="w-full bg-transparent border-none text-m7-neon focus:ring-0 p-0 text-lg uppercase tracking-widest placeholder:opacity-20"
+                        oninput="document.getElementById('msp-confirm-btn').disabled = this.value.trim() === ''"
+                        onkeydown="if(event.key==='Enter') confirmRenameSpace(); else if(event.key==='Escape') closeManageSpaceModal()">
+                    <span class="animate-pulse w-px h-5 bg-gray-600 ml-1"></span>
+                </div>
+                <div class="flex justify-end gap-6 text-[10px] tracking-widest">
+                    <button class="text-gray-600 hover:text-m7-neon uppercase transition-colors"
+                        onclick="closeManageSpaceModal()">[CANCEL]</button>
+                    <button id="msp-confirm-btn" class="text-m7-neon uppercase disabled:opacity-30 disabled:cursor-not-allowed"
+                        onclick="confirmRenameSpace()">[CONFIRM]</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ===================================================
      NEW SPACE MODAL (desktop only)
      =================================================== -->
 <div id="new-space-modal" class="hidden fixed inset-0 z-[100] flex items-center justify-center p-4">
@@ -328,12 +393,13 @@
             <div class="relative flex items-center">
                 <input id="new-space-input" type="text" placeholder="..."
                     class="w-full bg-transparent border-none text-m7-neon focus:ring-0 p-0 text-lg uppercase tracking-widest placeholder:opacity-20"
+                    oninput="document.getElementById('new-space-confirm-btn').disabled = this.value.trim() === ''"
                     onkeydown="if(event.key==='Enter') confirmNewSpace(); else if(event.key==='Escape') closeNewSpaceModal()">
                 <span class="animate-pulse w-px h-5 bg-gray-600 ml-1"></span>
             </div>
             <div class="mt-8 flex justify-end gap-6 text-[10px] tracking-widest">
                 <button class="text-gray-600 hover:text-m7-neon uppercase transition-colors" onclick="closeNewSpaceModal()">[CANCEL]</button>
-                <button class="text-m7-neon uppercase" onclick="confirmNewSpace()">[CONFIRM]</button>
+                <button id="new-space-confirm-btn" class="text-m7-neon uppercase disabled:opacity-30 disabled:cursor-not-allowed" disabled onclick="confirmNewSpace()">[CONFIRM]</button>
             </div>
         </div>
     </div>
