@@ -1,12 +1,12 @@
-const CACHE = 'task-director-v1';
+const CACHE = 'task-director-v2';
 const ASSETS = [
-  '/',
-  '/index.html',
-  '/app.js',
-  '/manifest.json',
-  '/favicon.svg',
-  '/icons/icon-192.png',
-  '/icons/icon-512.png'
+  './',
+  './index.html',
+  './app.js',
+  './manifest.json',
+  './favicon.svg',
+  './icons/icon-192.png',
+  './icons/icon-512.png'
 ];
 
 self.addEventListener('install', e => {
