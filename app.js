@@ -417,18 +417,19 @@ function handleDragStart(event, taskId) {
     dragPlaceholder = document.createElement('div');
     dragPlaceholder.className = 'drag-placeholder';
 
+    // setTimeout so the browser captures the drag image before we hide the card
     setTimeout(() => {
         const card = document.querySelector(`.task-card[data-id="${taskId}"]`);
-        if (card) {
-            card.style.opacity = '0';
-            if (card.parentNode) card.parentNode.insertBefore(dragPlaceholder, card.nextSibling);
+        if (card && card.parentNode) {
+            card.parentNode.insertBefore(dragPlaceholder, card);
+            card.style.display = 'none';
         }
     }, 0);
 }
 
 function handleDragEnd(event) {
     const card = document.querySelector(`.task-card[data-id="${draggingId}"]`);
-    if (card) card.style.opacity = '1';
+    if (card) card.style.display = '';
     if (dragPlaceholder && dragPlaceholder.parentNode) dragPlaceholder.parentNode.removeChild(dragPlaceholder);
     dragPlaceholder = null;
     draggingId = null;
@@ -438,21 +439,45 @@ function handleDragOver(event) {
     event.preventDefault();
     if (!dragPlaceholder || !draggingId) return;
 
-    const card = event.target.closest('.task-card');
     const container = event.target.closest('[data-status]');
     if (!container) return;
 
-    if (card && card.dataset.id !== draggingId) {
+    const collectCards = (col) => col
+        ? [...col.querySelectorAll('.task-card')].filter(c => c.dataset.id !== draggingId)
+        : [];
+
+    const oldContainer = dragPlaceholder.parentNode;
+    const allCards = [...new Set([...collectCards(oldContainer), ...collectCards(container)])];
+
+    // Settle any in-progress animations before measuring — prevents oscillation
+    // caused by reading mid-animation getBoundingClientRect values.
+    allCards.forEach(c => { c.style.transition = 'none'; c.style.transform = ''; });
+
+    // Find insertion point by scanning card positions (not event.target), so
+    // off-screen cards pushed down by the placeholder are still considered.
+    let ref = null;
+    for (const card of collectCards(container)) {
         const rect = card.getBoundingClientRect();
-        const before = event.clientY < rect.top + rect.height / 2;
-        const ref = before ? card : card.nextSibling;
-        if (dragPlaceholder.nextSibling !== ref && dragPlaceholder !== ref) {
-            container.insertBefore(dragPlaceholder, ref || null);
-        }
-    } else if (!card || card.dataset.id === draggingId) {
-        if (dragPlaceholder.parentNode !== container) container.appendChild(dragPlaceholder);
-        else if (!card && container.lastChild !== dragPlaceholder) container.appendChild(dragPlaceholder);
+        if (event.clientY < rect.top + rect.height / 2) { ref = card; break; }
     }
+
+    // Skip if placeholder is already in the right spot
+    if (dragPlaceholder.parentNode === container && dragPlaceholder.nextSibling === ref) return;
+
+    // FLIP — snapshot layout positions after settling transforms
+    const snapshots = new Map(allCards.map(c => [c, c.getBoundingClientRect().top]));
+
+    container.insertBefore(dragPlaceholder, ref);
+
+    allCards.forEach(c => {
+        const delta = (snapshots.get(c) || 0) - c.getBoundingClientRect().top;
+        if (Math.abs(delta) < 0.5) return;
+        c.style.transform = `translateY(${delta}px)`;
+        requestAnimationFrame(() => requestAnimationFrame(() => {
+            c.style.transition = 'transform 0.15s ease-out';
+            c.style.transform = '';
+        }));
+    });
 }
 
 function handleDrop(event, targetStatus) {
