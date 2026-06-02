@@ -149,34 +149,34 @@
 
             <!-- KANBAN COLUMNS -->
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 flex-1">
-                <section class="flex flex-col border-m7 p-4 bg-m7-black/30">
+                <section class="flex flex-col border-m7 p-4 bg-m7-black/30" ondragover="handleDragOver(event)" ondrop="handleDrop(event, 'backlog')">
                     <header class="flex justify-between items-center mb-6">
                         <div class="flex items-center gap-2">
                             <span class="w-3 h-3 bg-cyan-400"></span>
                             <h3 class="font-bold text-sm tracking-widest uppercase">Backlog</h3>
                         </div>
                     </header>
-                    <div class="space-y-4 min-h-[400px]" id="backlog-container" data-status="backlog" ondragover="handleDragOver(event)" ondrop="handleDrop(event, 'backlog')"></div>
+                    <div class="space-y-4 flex-1" id="backlog-container" data-status="backlog" ondragover="handleDragOver(event)" ondrop="handleDrop(event, 'backlog')"></div>
                 </section>
 
-                <section class="flex flex-col border-m7 p-4 bg-m7-black/30">
+                <section class="flex flex-col border-m7 p-4 bg-m7-black/30" ondragover="handleDragOver(event)" ondrop="handleDrop(event, 'in-progress')">
                     <header class="flex justify-between items-center mb-6">
                         <div class="flex items-center gap-2">
                             <span class="w-3 h-3 bg-m7-neon"></span>
                             <h3 class="font-bold text-sm tracking-widest uppercase">In Progress</h3>
                         </div>
                     </header>
-                    <div class="space-y-4 min-h-[400px]" id="inprogress-container" data-status="in-progress" ondragover="handleDragOver(event)" ondrop="handleDrop(event, 'in-progress')"></div>
+                    <div class="space-y-4 flex-1" id="inprogress-container" data-status="in-progress" ondragover="handleDragOver(event)" ondrop="handleDrop(event, 'in-progress')"></div>
                 </section>
 
-                <section class="flex flex-col border-m7 p-4 bg-m7-black/30">
+                <section class="flex flex-col border-m7 p-4 bg-m7-black/30" ondragover="handleDragOver(event)" ondrop="handleDrop(event, 'done')">
                     <header class="flex justify-between items-center mb-6">
                         <div class="flex items-center gap-2">
                             <span class="w-3 h-3 bg-gray-500"></span>
                             <h3 class="font-bold text-sm tracking-widest uppercase">Done</h3>
                         </div>
                     </header>
-                    <div class="space-y-4 min-h-[400px]" id="done-container" data-status="done" ondragover="handleDragOver(event)" ondrop="handleDrop(event, 'done')"></div>
+                    <div class="space-y-4 flex-1" id="done-container" data-status="done" ondragover="handleDragOver(event)" ondrop="handleDrop(event, 'done')"></div>
                 </section>
             </div>
         </main>
