@@ -224,15 +224,15 @@ function renderMobile(tasks) {
 
     const empty = `<div style="font-size: 10px; color: #2a2a2a; letter-spacing: 0.1em; padding: 10px 2px;">// NO PROTOCOLS</div>`;
 
-    const backlog = tasks.filter(t => t.status === 'backlog');
-    const inprogress = tasks.filter(t => t.status === 'in-progress');
-    const done = tasks.filter(t => t.status === 'done');
+    const backlog = orderedForRender(tasks, 'backlog');
+    const inprogress = orderedForRender(tasks, 'in-progress');
+    const done = orderedForRender(tasks, 'done');
 
     if (backlog.length === 0) backlogEl.innerHTML = empty;
     if (inprogress.length === 0) inprogressEl.innerHTML = empty;
     if (done.length === 0) doneEl.innerHTML = empty;
 
-    tasks.forEach(task => {
+    [...backlog, ...inprogress, ...done].forEach(task => {
         const isEditing = editingTaskId === task.id;
         const num = String(task.task_number).padStart(3, '0');
         let card;
