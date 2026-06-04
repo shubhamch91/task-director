@@ -264,7 +264,7 @@ function renderMobile(tasks) {
             const moveArrow = isDone ? '' : ARROW_ICON;
 
             card = `
-                <div class="mob-card" data-id="${task.id}" style="border: 1px solid #222; background: #141414; padding: 14px; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;"
+                <div class="mob-card" data-id="${task.id}" style="border: 1px solid #222; background: #141414; padding: 14px; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;"
                      ontouchstart="mobileDragTouchStart(event, '${task.id}')"
                      ontouchmove="mobileDragTouchMove(event)"
                      ontouchend="mobileDragTouchEnd(event)">
@@ -580,6 +580,10 @@ let mobDragOffsetX = 0;
 let mobDragOffsetY = 0;
 let mobDragActive = false;
 
+function _mobDragPreventScroll(e) { if (mobDragActive) e.preventDefault(); }
+function mobDragLockScroll()   { document.addEventListener('touchmove', _mobDragPreventScroll, { passive: false }); }
+function mobDragUnlockScroll() { document.removeEventListener('touchmove', _mobDragPreventScroll); }
+
 function mobileDragTouchStart(event, taskId) {
     // Only respond to single-finger touch on the card itself (not buttons)
     if (event.target.closest('button')) return;
@@ -597,6 +601,7 @@ function mobileDragTouchStart(event, taskId) {
         mobDragId = taskId;
         mobDragActive = true;
         _didScroll = true; // suppress tap
+        mobDragLockScroll();
 
         // Create floating clone — set individual props to preserve card's background/border inline styles
         mobDragClone = card.cloneNode(true);
@@ -637,7 +642,6 @@ function mobileDragTouchMove(event) {
         return;
     }
     if (!mobDragActive || !mobDragClone) return;
-    event.preventDefault();
 
     const touch = event.touches[0];
 
@@ -672,6 +676,7 @@ function mobileDragTouchEnd(event) {
 
     if (!mobDragActive) return;
     mobDragActive = false;
+    mobDragUnlockScroll();
 
     // Unlock text selection
     document.body.style.userSelect       = '';
@@ -1032,6 +1037,7 @@ document.addEventListener('touchcancel', () => {
     mobDragLongPressTimer = null;
     if (mobDragActive) {
         mobDragActive = false;
+        mobDragUnlockScroll();
         document.body.style.userSelect       = '';
         document.body.style.webkitUserSelect = '';
         const card = document.querySelector(`.mob-card[data-id="${mobDragId}"]`);
