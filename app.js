@@ -580,6 +580,7 @@ let mobDragOffsetX = 0;
 let mobDragOffsetY = 0;
 let mobDragActive = false;
 let mobDragColTimer = null;   // timer for auto-swipe between columns
+let mobDragColCooldown = false; // true after a switch until finger returns to neutral
 
 function _mobDragPreventScroll(e) { if (mobDragActive) e.preventDefault(); }
 function mobDragLockScroll()   { document.addEventListener('touchmove', _mobDragPreventScroll, { passive: false }); }
@@ -672,11 +673,16 @@ function mobileDragTouchMove(event) {
     // ---- Auto-swipe to adjacent column when finger crosses 50% of screen edge ----
     const inRightZone = touch.clientX > w * 0.5 && activeColumn < 2;
     const inLeftZone  = touch.clientX < w * 0.5 && activeColumn > 0;
+    const inNeutral   = touch.clientX >= w * 0.25 && touch.clientX <= w * 0.75;
 
-    if (inRightZone || inLeftZone) {
+    // Clear cooldown once finger returns to the neutral middle band
+    if (mobDragColCooldown && inNeutral) mobDragColCooldown = false;
+
+    if (!mobDragColCooldown && (inRightZone || inLeftZone)) {
         if (!mobDragColTimer) {
             mobDragColTimer = setTimeout(() => {
                 mobDragColTimer = null;
+                mobDragColCooldown = true; // block re-trigger until finger resets
                 const targetCol = inRightZone ? activeColumn + 1 : activeColumn - 1;
                 activeColumn = targetCol;
                 scrollToColumn(targetCol);
@@ -685,7 +691,7 @@ function mobileDragTouchMove(event) {
             }, 400);
         }
     } else {
-        // Finger moved back into safe zone — cancel pending switch
+        // Finger moved back into safe zone or cooldown active — cancel pending switch
         if (mobDragColTimer) { clearTimeout(mobDragColTimer); mobDragColTimer = null; }
     }
 
@@ -717,6 +723,7 @@ function mobileDragTouchEnd(event) {
     mobDragActive = false;
     mobDragUnlockScroll();
     if (mobDragColTimer) { clearTimeout(mobDragColTimer); mobDragColTimer = null; }
+    mobDragColCooldown = false;
 
     // Unlock text selection
     document.body.style.userSelect       = '';
@@ -1079,6 +1086,7 @@ document.addEventListener('touchcancel', () => {
         mobDragActive = false;
         mobDragUnlockScroll();
         if (mobDragColTimer) { clearTimeout(mobDragColTimer); mobDragColTimer = null; }
+        mobDragColCooldown = false;
         document.body.style.userSelect       = '';
         document.body.style.webkitUserSelect = '';
         const card = document.querySelector(`.mob-card[data-id="${mobDragId}"]`);
