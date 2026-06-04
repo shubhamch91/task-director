@@ -264,7 +264,7 @@ function renderMobile(tasks) {
             const moveArrow = isDone ? '' : ARROW_ICON;
 
             card = `
-                <div class="mob-card" data-id="${task.id}" style="border: 1px solid #222; background: #141414; padding: 14px; touch-action: none; user-select: none;"
+                <div class="mob-card" data-id="${task.id}" style="border: 1px solid #222; background: #141414; padding: 14px; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;"
                      ontouchstart="mobileDragTouchStart(event, '${task.id}')"
                      ontouchmove="mobileDragTouchMove(event)"
                      ontouchend="mobileDragTouchEnd(event)">
@@ -598,21 +598,23 @@ function mobileDragTouchStart(event, taskId) {
         mobDragActive = true;
         _didScroll = true; // suppress tap
 
-        // Create floating clone
+        // Create floating clone — set individual props to preserve card's background/border inline styles
         mobDragClone = card.cloneNode(true);
-        mobDragClone.style.cssText = `
-            position: fixed;
-            left: ${rect.left}px;
-            top: ${rect.top}px;
-            width: ${rect.width}px;
-            opacity: 0.9;
-            z-index: 9999;
-            pointer-events: none;
-            box-shadow: 0 8px 32px rgba(0,255,127,0.25);
-            border-color: #00ff7f !important;
-            transition: none;
-        `;
+        mobDragClone.style.position    = 'fixed';
+        mobDragClone.style.left        = rect.left + 'px';
+        mobDragClone.style.top         = rect.top + 'px';
+        mobDragClone.style.width       = rect.width + 'px';
+        mobDragClone.style.opacity     = '0.9';
+        mobDragClone.style.zIndex      = '9999';
+        mobDragClone.style.pointerEvents = 'none';
+        mobDragClone.style.boxShadow   = '0 8px 32px rgba(0,255,127,0.25)';
+        mobDragClone.style.borderColor = '#00ff7f';
+        mobDragClone.style.transition  = 'none';
         document.body.appendChild(mobDragClone);
+
+        // Lock selection on the whole document for the duration of the drag
+        document.body.style.userSelect       = 'none';
+        document.body.style.webkitUserSelect = 'none';
 
         // Placeholder in original position
         mobDragPlaceholder = document.createElement('div');
@@ -670,6 +672,10 @@ function mobileDragTouchEnd(event) {
 
     if (!mobDragActive) return;
     mobDragActive = false;
+
+    // Unlock text selection
+    document.body.style.userSelect       = '';
+    document.body.style.webkitUserSelect = '';
 
     // Restore original card visibility
     const card = document.querySelector(`.mob-card[data-id="${mobDragId}"]`);
@@ -1020,6 +1026,22 @@ function updateClock() {
 let _didScroll = false;
 document.addEventListener('touchstart', () => { _didScroll = false; }, { passive: true });
 document.addEventListener('touchmove', () => { _didScroll = true; }, { passive: true });
+// Clean up any interrupted mobile drag (e.g. incoming call, back gesture)
+document.addEventListener('touchcancel', () => {
+    clearTimeout(mobDragLongPressTimer);
+    mobDragLongPressTimer = null;
+    if (mobDragActive) {
+        mobDragActive = false;
+        document.body.style.userSelect       = '';
+        document.body.style.webkitUserSelect = '';
+        const card = document.querySelector(`.mob-card[data-id="${mobDragId}"]`);
+        if (card) card.style.visibility = '';
+        if (mobDragClone) { mobDragClone.remove(); mobDragClone = null; }
+        if (mobDragPlaceholder) { mobDragPlaceholder.remove(); mobDragPlaceholder = null; }
+        mobDragId = null;
+        render();
+    }
+});
 
 function isTap(event) {
     return !_didScroll;
