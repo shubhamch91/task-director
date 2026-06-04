@@ -620,7 +620,7 @@ function mobileDragTouchStart(event, taskId) {
         mobDragPlaceholder = document.createElement('div');
         mobDragPlaceholder.className = 'drag-placeholder';
         card.parentNode.insertBefore(mobDragPlaceholder, card);
-        card.style.visibility = 'hidden';
+        card.style.display = 'none';
 
         if (navigator.vibrate) navigator.vibrate(40);
     }, 350);
@@ -677,9 +677,9 @@ function mobileDragTouchEnd(event) {
     document.body.style.userSelect       = '';
     document.body.style.webkitUserSelect = '';
 
-    // Restore original card visibility
+    // Restore original card display
     const card = document.querySelector(`.mob-card[data-id="${mobDragId}"]`);
-    if (card) card.style.visibility = '';
+    if (card) card.style.display = '';
 
     if (mobDragClone) { mobDragClone.remove(); mobDragClone = null; }
 
@@ -1035,7 +1035,7 @@ document.addEventListener('touchcancel', () => {
         document.body.style.userSelect       = '';
         document.body.style.webkitUserSelect = '';
         const card = document.querySelector(`.mob-card[data-id="${mobDragId}"]`);
-        if (card) card.style.visibility = '';
+        if (card) card.style.display = '';
         if (mobDragClone) { mobDragClone.remove(); mobDragClone = null; }
         if (mobDragPlaceholder) { mobDragPlaceholder.remove(); mobDragPlaceholder = null; }
         mobDragId = null;
