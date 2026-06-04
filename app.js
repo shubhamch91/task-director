@@ -579,6 +579,7 @@ let mobDragStartY = 0;
 let mobDragOffsetX = 0;
 let mobDragOffsetY = 0;
 let mobDragActive = false;
+let mobDragColTimer = null;   // timer for auto-swipe between columns
 
 function _mobDragPreventScroll(e) { if (mobDragActive) e.preventDefault(); }
 function mobDragLockScroll()   { document.addEventListener('touchmove', _mobDragPreventScroll, { passive: false }); }
@@ -631,6 +632,24 @@ function mobileDragTouchStart(event, taskId) {
     }, 350);
 }
 
+function mobDragPlaceholderIntoColumn(colIndex, touchY) {
+    const colIds = ['mob-backlog', 'mob-inprogress', 'mob-done'];
+    const container = document.getElementById(colIds[colIndex]);
+    if (!container) return;
+
+    const cards = [...container.querySelectorAll('.mob-card')].filter(c => c.dataset.id !== mobDragId);
+    let ref = null;
+    // touchY may be stale after a column switch — default to appending at end
+    if (touchY != null) {
+        for (const c of cards) {
+            const r = c.getBoundingClientRect();
+            if (touchY < r.top + r.height / 2) { ref = c; break; }
+        }
+    }
+    if (mobDragPlaceholder.parentNode === container && mobDragPlaceholder.nextSibling === ref) return;
+    container.insertBefore(mobDragPlaceholder, ref);
+}
+
 function mobileDragTouchMove(event) {
     // Cancel long press if finger moved too far before timer fires
     if (mobDragLongPressTimer && !mobDragActive) {
@@ -644,12 +663,33 @@ function mobileDragTouchMove(event) {
     if (!mobDragActive || !mobDragClone) return;
 
     const touch = event.touches[0];
+    const w = window.innerWidth;
 
     // Move clone to follow finger
     mobDragClone.style.left = (touch.clientX - mobDragOffsetX) + 'px';
     mobDragClone.style.top  = (touch.clientY - mobDragOffsetY) + 'px';
 
-    // Find which column container is under the finger
+    // ---- Auto-swipe to adjacent column when finger crosses 50% of screen edge ----
+    const inRightZone = touch.clientX > w * 0.5 && activeColumn < 2;
+    const inLeftZone  = touch.clientX < w * 0.5 && activeColumn > 0;
+
+    if (inRightZone || inLeftZone) {
+        if (!mobDragColTimer) {
+            mobDragColTimer = setTimeout(() => {
+                mobDragColTimer = null;
+                const targetCol = inRightZone ? activeColumn + 1 : activeColumn - 1;
+                activeColumn = targetCol;
+                scrollToColumn(targetCol);
+                // Move placeholder into the new column after scroll animates (~350ms)
+                setTimeout(() => mobDragPlaceholderIntoColumn(targetCol, null), 380);
+            }, 400);
+        }
+    } else {
+        // Finger moved back into safe zone — cancel pending switch
+        if (mobDragColTimer) { clearTimeout(mobDragColTimer); mobDragColTimer = null; }
+    }
+
+    // ---- Update placeholder position within the currently visible column ----
     mobDragClone.style.visibility = 'hidden';
     const el = document.elementFromPoint(touch.clientX, touch.clientY);
     mobDragClone.style.visibility = '';
@@ -658,7 +698,6 @@ function mobileDragTouchMove(event) {
     const container = el.closest('[data-status]');
     if (!container) return;
 
-    // Find insertion point by scanning card midpoints
     const cards = [...container.querySelectorAll('.mob-card')].filter(c => c.dataset.id !== mobDragId);
     let ref = null;
     for (const c of cards) {
@@ -677,6 +716,7 @@ function mobileDragTouchEnd(event) {
     if (!mobDragActive) return;
     mobDragActive = false;
     mobDragUnlockScroll();
+    if (mobDragColTimer) { clearTimeout(mobDragColTimer); mobDragColTimer = null; }
 
     // Unlock text selection
     document.body.style.userSelect       = '';
@@ -1038,6 +1078,7 @@ document.addEventListener('touchcancel', () => {
     if (mobDragActive) {
         mobDragActive = false;
         mobDragUnlockScroll();
+        if (mobDragColTimer) { clearTimeout(mobDragColTimer); mobDragColTimer = null; }
         document.body.style.userSelect       = '';
         document.body.style.webkitUserSelect = '';
         const card = document.querySelector(`.mob-card[data-id="${mobDragId}"]`);
