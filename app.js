@@ -264,13 +264,16 @@ function renderMobile(tasks) {
             const moveArrow = isDone ? '' : ARROW_ICON;
 
             card = `
-                <div style="border: 1px solid #222; background: #141414; padding: 14px;">
+                <div class="mob-card" data-id="${task.id}" style="border: 1px solid #222; background: #141414; padding: 14px; touch-action: none; user-select: none;"
+                     ontouchstart="mobileDragTouchStart(event, '${task.id}')"
+                     ontouchmove="mobileDragTouchMove(event)"
+                     ontouchend="mobileDragTouchEnd(event)">
                     <div style="font-size: 10px; color: #6b7280; margin-bottom: 12px;">#${num}</div>
                     <div style="font-size: 13px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.45; color: #e5e7eb; margin-bottom: 14px;">${task.description}</div>
                     <div style="display: flex; gap: 8px;">
-                        <button class="${moveClass}" ontouchend="event.preventDefault(); if(isTap(event)) moveTask('${task.id}', '${task.status}')">${moveLabel} ${moveArrow}</button>
-                        <button class="mob-btn-edit" ontouchend="event.preventDefault(); if(isTap(event)) enterInlineEdit('${task.id}')">${EDIT_ICON}</button>
-                        <button class="mob-btn-del" ontouchend="event.preventDefault(); if(isTap(event)) deleteTask('${task.id}')">${TRASH_ICON}</button>
+                        <button class="${moveClass}" ontouchend="event.stopPropagation(); event.preventDefault(); if(isTap(event)) moveTask('${task.id}', '${task.status}')">${moveLabel} ${moveArrow}</button>
+                        <button class="mob-btn-edit" ontouchend="event.stopPropagation(); event.preventDefault(); if(isTap(event)) enterInlineEdit('${task.id}')">${EDIT_ICON}</button>
+                        <button class="mob-btn-del" ontouchend="event.stopPropagation(); event.preventDefault(); if(isTap(event)) deleteTask('${task.id}')">${TRASH_ICON}</button>
                     </div>
                 </div>`;
         }
@@ -566,7 +569,158 @@ function handleDrop(event, targetStatus) {
     setTimeout(() => { lastDroppedId = null; }, 300);
 }
 
-// 5. MOBILE SHEET
+// 5. MOBILE TOUCH DRAG AND DROP
+let mobDragId = null;
+let mobDragClone = null;
+let mobDragPlaceholder = null;
+let mobDragLongPressTimer = null;
+let mobDragStartX = 0;
+let mobDragStartY = 0;
+let mobDragOffsetX = 0;
+let mobDragOffsetY = 0;
+let mobDragActive = false;
+
+function mobileDragTouchStart(event, taskId) {
+    // Only respond to single-finger touch on the card itself (not buttons)
+    if (event.target.closest('button')) return;
+    const touch = event.touches[0];
+    mobDragStartX = touch.clientX;
+    mobDragStartY = touch.clientY;
+
+    mobDragLongPressTimer = setTimeout(() => {
+        const card = document.querySelector(`.mob-card[data-id="${taskId}"]`);
+        if (!card) return;
+        const rect = card.getBoundingClientRect();
+        mobDragOffsetX = touch.clientX - rect.left;
+        mobDragOffsetY = touch.clientY - rect.top;
+
+        mobDragId = taskId;
+        mobDragActive = true;
+        _didScroll = true; // suppress tap
+
+        // Create floating clone
+        mobDragClone = card.cloneNode(true);
+        mobDragClone.style.cssText = `
+            position: fixed;
+            left: ${rect.left}px;
+            top: ${rect.top}px;
+            width: ${rect.width}px;
+            opacity: 0.9;
+            z-index: 9999;
+            pointer-events: none;
+            box-shadow: 0 8px 32px rgba(0,255,127,0.25);
+            border-color: #00ff7f !important;
+            transition: none;
+        `;
+        document.body.appendChild(mobDragClone);
+
+        // Placeholder in original position
+        mobDragPlaceholder = document.createElement('div');
+        mobDragPlaceholder.className = 'drag-placeholder';
+        card.parentNode.insertBefore(mobDragPlaceholder, card);
+        card.style.visibility = 'hidden';
+
+        if (navigator.vibrate) navigator.vibrate(40);
+    }, 350);
+}
+
+function mobileDragTouchMove(event) {
+    // Cancel long press if finger moved too far before timer fires
+    if (mobDragLongPressTimer && !mobDragActive) {
+        const touch = event.touches[0];
+        if (Math.abs(touch.clientX - mobDragStartX) > 8 || Math.abs(touch.clientY - mobDragStartY) > 8) {
+            clearTimeout(mobDragLongPressTimer);
+            mobDragLongPressTimer = null;
+        }
+        return;
+    }
+    if (!mobDragActive || !mobDragClone) return;
+    event.preventDefault();
+
+    const touch = event.touches[0];
+
+    // Move clone to follow finger
+    mobDragClone.style.left = (touch.clientX - mobDragOffsetX) + 'px';
+    mobDragClone.style.top  = (touch.clientY - mobDragOffsetY) + 'px';
+
+    // Find which column container is under the finger
+    mobDragClone.style.visibility = 'hidden';
+    const el = document.elementFromPoint(touch.clientX, touch.clientY);
+    mobDragClone.style.visibility = '';
+    if (!el) return;
+
+    const container = el.closest('[data-status]');
+    if (!container) return;
+
+    // Find insertion point by scanning card midpoints
+    const cards = [...container.querySelectorAll('.mob-card')].filter(c => c.dataset.id !== mobDragId);
+    let ref = null;
+    for (const c of cards) {
+        const r = c.getBoundingClientRect();
+        if (touch.clientY < r.top + r.height / 2) { ref = c; break; }
+    }
+
+    if (mobDragPlaceholder.parentNode === container && mobDragPlaceholder.nextSibling === ref) return;
+    container.insertBefore(mobDragPlaceholder, ref);
+}
+
+function mobileDragTouchEnd(event) {
+    clearTimeout(mobDragLongPressTimer);
+    mobDragLongPressTimer = null;
+
+    if (!mobDragActive) return;
+    mobDragActive = false;
+
+    // Restore original card visibility
+    const card = document.querySelector(`.mob-card[data-id="${mobDragId}"]`);
+    if (card) card.style.visibility = '';
+
+    if (mobDragClone) { mobDragClone.remove(); mobDragClone = null; }
+
+    // Commit drop
+    if (mobDragPlaceholder && mobDragPlaceholder.parentNode) {
+        const container = mobDragPlaceholder.parentNode;
+        const newStatus = container.dataset.status;
+        const task = taskState.find(t => t.id === mobDragId);
+
+        if (task) {
+            const oldStatus = task.status;
+
+            // Build new column order from DOM
+            const newOrder = [];
+            for (const child of container.children) {
+                if (child === mobDragPlaceholder) newOrder.push(mobDragId);
+                else if (child.dataset.id && child.dataset.id !== mobDragId) newOrder.push(child.dataset.id);
+            }
+            if (!newOrder.includes(mobDragId)) newOrder.push(mobDragId);
+
+            if (task.status !== newStatus) {
+                task.status = newStatus;
+                supabase('PATCH', `${DB_TABLE}?id=eq.${encodeURIComponent(mobDragId)}`, { status: newStatus });
+            }
+
+            if (oldStatus !== newStatus) {
+                taskOrder[oldStatus] = (taskOrder[oldStatus] || []).filter(id => id !== mobDragId);
+            }
+
+            const otherSpaceIds = (taskOrder[newStatus] || []).filter(id => {
+                const t = taskState.find(tk => tk.id === id);
+                return t && t.space_id !== activeSpaceId;
+            });
+            taskOrder[newStatus] = [...newOrder, ...otherSpaceIds];
+            persistColumnOrder(newStatus);
+            if (oldStatus !== newStatus) persistColumnOrder(oldStatus);
+        }
+
+        mobDragPlaceholder.remove();
+        mobDragPlaceholder = null;
+    }
+
+    mobDragId = null;
+    render();
+}
+
+// 7. MOBILE SHEET
 function openSheet() {
     document.getElementById('create-sheet-root').classList.add('is-open');
     setTimeout(() => document.getElementById('mob-task-input').focus(), 60);
