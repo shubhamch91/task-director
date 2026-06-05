@@ -29,10 +29,14 @@ async function supabase(method, path, body = null) {
 // 1. IN-MEMORY STATE
 const DB_TABLE      = window.location.hostname.includes('github.io') ? 'tasks'      : 'tasks_dev';
 const SPACES_TABLE  = window.location.hostname.includes('github.io') ? 'spaces'     : 'spaces_dev';
+const ARCHIVE_TABLE = window.location.hostname.includes('github.io') ? 'archive'    : 'archive_dev';
 
 let taskState      = [];
 let spacesState    = [];
 let activeSpaceId  = null;
+let archivedState  = [];
+let activeMobileTab = 'dashboard';
+let activeDeskNav   = 'DASHBOARD';
 let editingTaskId  = null;
 let managingSpaceId = null;
 let taskOrder      = {};
@@ -43,6 +47,14 @@ let lastDroppedId  = null;
 
 async function loadTasks() {
     taskState = await supabase('GET', `${DB_TABLE}?order=task_number.asc`);
+}
+
+async function loadArchive() {
+    try {
+        archivedState = await supabase('GET', `${ARCHIVE_TABLE}?order=archived_at.desc`);
+    } catch (e) {
+        archivedState = [];
+    }
 }
 
 async function loadSpaces() {
@@ -64,6 +76,8 @@ function render() {
 
     renderMobile(filteredTasks);
     renderMobileSpaces();
+
+    renderArchive();
 }
 
 // ---- TASK ORDER (manual column positions, persisted to Supabase) ----
@@ -136,7 +150,7 @@ function renderDesktop(tasks) {
     ];
     orderedTasks.forEach(task => {
         const isEditing = editingTaskId === task.id;
-        const moveLabel = task.status === 'done' ? 'Reset' : 'Move';
+        const isDoneTask = task.status === 'done';
 
         let cardInner;
         if (isEditing) {
@@ -171,8 +185,10 @@ function renderDesktop(tasks) {
                         <p class="text-[11px] font-bold tracking-tight leading-snug uppercase truncate w-full" title="${task.description}">${task.description}</p>
                     </div>
                     <div class="flex items-center gap-1.5 h-7">
-                        <button draggable="false" class="flex-1 bg-m7-gray text-[9px] h-full uppercase hover:bg-gray-700 transition-colors"
-                                onclick="moveTask('${task.id}', '${task.status}')">${moveLabel}</button>
+                        ${isDoneTask
+                            ? `<button draggable="false" class="flex-1 text-[9px] h-full uppercase transition-colors" style="background:#2a2a2a;color:#6b7280;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;font-family:inherit;font-weight:700;letter-spacing:0.08em;" onmouseover="this.style.background='#1c2a1c';this.style.color='#e5e7eb'" onmouseout="this.style.background='#2a2a2a';this.style.color='#6b7280'" onclick="archiveTask('${task.id}')">${ARCHIVE_ICON_DESK} ARCHIVE</button>`
+                            : `<button draggable="false" class="flex-1 bg-m7-gray text-[9px] h-full uppercase hover:bg-gray-700 transition-colors" onclick="moveTask('${task.id}', '${task.status}')">Move</button>`
+                        }
                         <button draggable="false" class="w-7 h-7 flex items-center justify-center bg-m7-dark-gray hover:bg-m7-gray transition-colors border border-m7-border text-gray-500 hover:text-m7-neon"
                                 onclick="enterInlineEdit('${task.id}')" title="Edit Task">
                             <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -211,6 +227,15 @@ function renderDesktop(tasks) {
 const ARROW_ICON = `<svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>`;
 const TRASH_ICON = `<svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" viewBox="0 0 24 24"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>`;
 const EDIT_ICON = `<svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" viewBox="0 0 24 24"><path d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/></svg>`;
+const ARCHIVE_ICON_MOB  = `<svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="4"/><path d="M4 8v11a1 1 0 001 1h14a1 1 0 001-1V8M9 13h6"/></svg>`;
+const ARCHIVE_ICON_DESK = `<svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="4"/><path d="M4 8v11a1 1 0 001 1h14a1 1 0 001-1V8M9 13h6"/></svg>`;
+const TRASH_ICON_14 = `<svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>`;
+const TRASH_ICON_12 = `<svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>`;
+
+const ARCHIVE_MONTHS = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
+const ARCHIVE_DAYS   = ['SUN','MON','TUE','WED','THU','FRI','SAT'];
+function archiveDateGroupKey(ms)   { const d = new Date(ms); return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`; }
+function archiveDateGroupLabel(ms) { const d = new Date(ms); return ARCHIVE_DAYS[d.getDay()] + ' ' + String(d.getDate()).padStart(2,'0') + ' ' + ARCHIVE_MONTHS[d.getMonth()]; }
 
 function renderMobile(tasks) {
     const backlogEl = document.getElementById('mob-backlog');
@@ -259,9 +284,9 @@ function renderMobile(tasks) {
                 </div>`;
         } else {
             const isDone = task.status === 'done';
-            const moveLabel = isDone ? 'RESET' : 'MOVE';
-            const moveClass = isDone ? 'mob-btn-move is-reset' : 'mob-btn-move';
-            const moveArrow = isDone ? '' : ARROW_ICON;
+            const primaryBtn = isDone
+                ? `<button class="mob-btn-archive" ontouchend="event.stopPropagation(); event.preventDefault(); if(isTap(event)) archiveTask('${task.id}')">${ARCHIVE_ICON_MOB} ARCHIVE</button>`
+                : `<button class="mob-btn-move" ontouchend="event.stopPropagation(); event.preventDefault(); if(isTap(event)) moveTask('${task.id}', '${task.status}')">MOVE ${ARROW_ICON}</button>`;
 
             card = `
                 <div class="mob-card" data-id="${task.id}" style="border: 1px solid #222; background: #141414; padding: 14px; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;"
@@ -271,7 +296,7 @@ function renderMobile(tasks) {
                     <div style="font-size: 10px; color: #6b7280; margin-bottom: 12px;">#${num}</div>
                     <div style="font-size: 13px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.45; color: #e5e7eb; margin-bottom: 14px;">${task.description}</div>
                     <div style="display: flex; gap: 8px;">
-                        <button class="${moveClass}" ontouchend="event.stopPropagation(); event.preventDefault(); if(isTap(event)) moveTask('${task.id}', '${task.status}')">${moveLabel} ${moveArrow}</button>
+                        ${primaryBtn}
                         <button class="mob-btn-edit" ontouchend="event.stopPropagation(); event.preventDefault(); if(isTap(event)) enterInlineEdit('${task.id}')">${EDIT_ICON}</button>
                         <button class="mob-btn-del" ontouchend="event.stopPropagation(); event.preventDefault(); if(isTap(event)) deleteTask('${task.id}')">${TRASH_ICON}</button>
                     </div>
@@ -316,6 +341,12 @@ function updateMobileStats(tasks) {
             return `<div style="flex: ${grow}; background: ${color}; opacity: ${opacity};"></div>`;
         }).join('');
     }
+    const mobArchiveAllBtn = document.getElementById('mob-archive-all-btn');
+    if (mobArchiveAllBtn) {
+        mobArchiveAllBtn.disabled = counts[2] === 0;
+        mobArchiveAllBtn.style.opacity = counts[2] === 0 ? '0.3' : '1';
+        mobArchiveAllBtn.style.cursor  = counts[2] === 0 ? 'not-allowed' : 'pointer';
+    }
 }
 
 function updateDesktopStats(tasks) {
@@ -338,6 +369,12 @@ function updateDesktopStats(tasks) {
             const opacity = i === 2 ? '0.4' : '1';
             return `<div class="dist-segment" style="flex: ${grow}; background: ${color}; opacity: ${opacity};"></div>`;
         }).join('');
+    }
+    const deskArchiveAllBtn = document.getElementById('desk-archive-all-btn');
+    if (deskArchiveAllBtn) {
+        deskArchiveAllBtn.disabled = counts[2] === 0;
+        deskArchiveAllBtn.style.opacity = counts[2] === 0 ? '0.3' : '1';
+        deskArchiveAllBtn.style.cursor  = counts[2] === 0 ? 'not-allowed' : 'pointer';
     }
 }
 
@@ -394,6 +431,40 @@ async function deleteTask(taskId) {
     });
     render();
     supabase('DELETE', `${DB_TABLE}?id=eq.${encodeURIComponent(taskId)}`);
+}
+
+async function archiveTask(taskId) {
+    const task = taskState.find(t => t.id === taskId);
+    if (!task || task.status !== 'done') return;
+    const archivedAt = Date.now();
+    taskState = taskState.filter(t => t.id !== taskId);
+    ['backlog', 'in-progress', 'done'].forEach(s => {
+        taskOrder[s] = (taskOrder[s] || []).filter(id => id !== taskId);
+    });
+    archivedState.unshift({ ...task, archived_at: archivedAt });
+    render();
+    supabase('DELETE', `${DB_TABLE}?id=eq.${encodeURIComponent(taskId)}`);
+    supabase('POST', ARCHIVE_TABLE, { id: taskId, task_number: task.task_number, description: task.description, space_id: task.space_id, archived_at: archivedAt });
+}
+
+async function archiveAllDone(spaceId) {
+    const doneTasks = taskState.filter(t => t.status === 'done' && t.space_id === spaceId);
+    if (doneTasks.length === 0) return;
+    const archivedAt = Date.now();
+    taskState = taskState.filter(t => !(t.status === 'done' && t.space_id === spaceId));
+    taskOrder['done'] = (taskOrder['done'] || []).filter(id => !doneTasks.find(t => t.id === id));
+    archivedState.unshift(...doneTasks.map(t => ({ ...t, archived_at: archivedAt })));
+    render();
+    doneTasks.forEach(task => {
+        supabase('DELETE', `${DB_TABLE}?id=eq.${encodeURIComponent(task.id)}`);
+        supabase('POST', ARCHIVE_TABLE, { id: task.id, task_number: task.task_number, description: task.description, space_id: task.space_id, archived_at: archivedAt });
+    });
+}
+
+async function deleteArchived(archiveId) {
+    archivedState = archivedState.filter(t => t.id !== archiveId);
+    renderArchive();
+    supabase('DELETE', `${ARCHIVE_TABLE}?id=eq.${encodeURIComponent(archiveId)}`);
 }
 
 async function createNewTask() {
@@ -792,7 +863,174 @@ function mobileDragTouchEnd(event) {
     render();
 }
 
-// 7. MOBILE SHEET
+// 7. ARCHIVE
+
+function renderArchiveMobile() {
+    const container = document.getElementById('mob-archive-view');
+    if (!container) return;
+    const filtered = archivedState.filter(t => t.space_id === activeSpaceId);
+    if (filtered.length === 0) {
+        container.innerHTML = `
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
+                <div style="width:14px;height:14px;background:#374151;flex:none;"></div>
+                <span style="font-size:18px;font-weight:700;letter-spacing:0.05em;">ARCHIVE</span>
+            </div>
+            <div style="font-size:10px;color:#2a2a2a;letter-spacing:0.1em;padding:10px 2px;">// ARCHIVE EMPTY</div>`;
+        return;
+    }
+    const groupMap = {};
+    filtered.forEach(t => {
+        const key = archiveDateGroupKey(t.archived_at);
+        if (!groupMap[key]) groupMap[key] = { label: archiveDateGroupLabel(t.archived_at), ts: t.archived_at, tasks: [] };
+        groupMap[key].tasks.push(t);
+    });
+    const groups = Object.values(groupMap).sort((a, b) => b.ts - a.ts);
+    let html = `
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
+            <div style="width:14px;height:14px;background:#374151;flex:none;"></div>
+            <span style="font-size:18px;font-weight:700;letter-spacing:0.05em;">ARCHIVE</span>
+        </div>`;
+    groups.forEach((group, gi) => {
+        html += `<div style="margin-bottom:${gi < groups.length - 1 ? '24px' : '0'};">
+            <div style="font-size:9px;color:#4b5563;letter-spacing:0.16em;text-transform:uppercase;padding-bottom:10px;border-bottom:1px solid #1e1e1e;margin-bottom:12px;font-family:inherit;">${group.label}</div>
+            <div style="display:flex;flex-direction:column;gap:12px;">`;
+        group.tasks.forEach(t => {
+            const num = String(t.task_number).padStart(3, '0');
+            const space = spacesState.find(s => s.id === t.space_id);
+            const spaceName = space ? space.name : '';
+            html += `
+                <div style="border:1px solid #222;background:#141414;padding:14px;opacity:0.72;">
+                    <div style="display:flex;justify-content:space-between;font-size:9px;color:#374151;margin-bottom:10px;letter-spacing:0.1em;">
+                        <span>#${num}</span><span>${spaceName}</span>
+                    </div>
+                    <p style="font-size:11px;font-weight:700;letter-spacing:-0.02em;line-height:1.45;color:#9ca3af;margin-bottom:14px;">${t.description}</p>
+                    <div style="display:flex;">
+                        <button style="flex:1;min-height:44px;background:transparent;border:1px solid #2a2a2a;color:#374151;cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:inherit;touch-action:manipulation;"
+                                ontouchend="event.stopPropagation();event.preventDefault();if(isTap(event))deleteArchived('${t.id}')"
+                                onclick="deleteArchived('${t.id}')">${TRASH_ICON_14}</button>
+                    </div>
+                </div>`;
+        });
+        html += `</div></div>`;
+    });
+    container.innerHTML = html;
+}
+
+function renderArchiveDesktop() {
+    const container = document.getElementById('desk-archive-view');
+    if (!container) return;
+    const filtered = archivedState.filter(t => t.space_id === activeSpaceId);
+    if (filtered.length === 0) {
+        container.innerHTML = `
+            <div style="display:flex;align-items:center;gap:14px;margin-bottom:32px;">
+                <div style="width:16px;height:16px;background:#374151;flex:none;"></div>
+                <h2 style="font-size:22px;font-weight:700;letter-spacing:0.04em;color:#e5e7eb;font-family:inherit;margin:0;">ARCHIVE</h2>
+            </div>
+            <div style="font-size:10px;color:#2a2a2a;letter-spacing:0.12em;">// ARCHIVE EMPTY</div>`;
+        return;
+    }
+    const groupMap = {};
+    filtered.forEach(t => {
+        const key = archiveDateGroupKey(t.archived_at);
+        if (!groupMap[key]) groupMap[key] = { label: archiveDateGroupLabel(t.archived_at), ts: t.archived_at, tasks: [] };
+        groupMap[key].tasks.push(t);
+    });
+    const groups = Object.values(groupMap).sort((a, b) => b.ts - a.ts);
+    let html = `
+        <div style="display:flex;align-items:center;gap:14px;margin-bottom:32px;">
+            <div style="width:16px;height:16px;background:#374151;flex:none;"></div>
+            <h2 style="font-size:22px;font-weight:700;letter-spacing:0.04em;color:#e5e7eb;font-family:inherit;margin:0;">ARCHIVE</h2>
+        </div>`;
+    groups.forEach(group => {
+        html += `<div style="margin-bottom:28px;">
+            <div style="font-size:9px;color:#4b5563;letter-spacing:0.18em;text-transform:uppercase;padding-bottom:10px;border-bottom:1px solid #1e1e1e;margin-bottom:14px;font-family:inherit;">${group.label}</div>
+            <div style="display:flex;flex-direction:column;gap:12px;">`;
+        group.tasks.forEach(t => {
+            const num = String(t.task_number).padStart(3, '0');
+            const space = spacesState.find(s => s.id === t.space_id);
+            const spaceName = space ? space.name : '';
+            html += `
+                <div style="border:1px solid #222;background:#141414;padding:14px;opacity:0.7;transition:opacity 0.15s;cursor:default;"
+                     onmouseover="this.style.opacity='0.9'" onmouseout="this.style.opacity='0.7'">
+                    <div style="display:flex;justify-content:space-between;font-size:9px;color:#374151;margin-bottom:10px;letter-spacing:0.1em;">
+                        <span>#${num}</span><span>${spaceName}</span>
+                    </div>
+                    <p style="font-size:11px;font-weight:700;letter-spacing:-0.02em;line-height:1.45;color:#9ca3af;margin-bottom:12px;">${t.description}</p>
+                    <button onclick="deleteArchived('${t.id}')"
+                            style="width:28px;height:28px;border:1px solid #2a2a2a;background:transparent;color:#374151;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:border-color 0.15s,color 0.15s;"
+                            onmouseover="this.style.borderColor='#ef4444';this.style.color='#ef4444'"
+                            onmouseout="this.style.borderColor='#2a2a2a';this.style.color='#374151'">${TRASH_ICON_12}</button>
+                </div>`;
+        });
+        html += `</div></div>`;
+    });
+    container.innerHTML = html;
+}
+
+function renderArchive() {
+    if (activeMobileTab === 'archive') renderArchiveMobile();
+    if (activeDeskNav === 'ARCHIVE') renderArchiveDesktop();
+}
+
+function switchMobileTab(tab) {
+    activeMobileTab = tab;
+    const board      = document.getElementById('mobile-board');
+    const archView   = document.getElementById('mob-archive-view');
+    const fab        = document.getElementById('mob-fab');
+    const tabDash    = document.getElementById('mob-tab-dashboard');
+    const tabArch    = document.getElementById('mob-tab-archive');
+    const indDash    = document.getElementById('mob-tab-ind-dashboard');
+    const indArch    = document.getElementById('mob-tab-ind-archive');
+    const distRow    = document.getElementById('mob-dist');
+    const statsRow   = document.getElementById('mob-stats-row');
+    if (tab === 'dashboard') {
+        board.style.display    = 'flex';
+        archView.style.display = 'none';
+        fab.style.display      = 'flex';
+        if (distRow) distRow.style.display  = '';
+        if (statsRow) statsRow.style.display = '';
+        tabDash.style.color = '#00ff7f';
+        tabArch.style.color = '#6b7280';
+        indDash.style.display = 'block';
+        indArch.style.display = 'none';
+    } else {
+        board.style.display    = 'none';
+        archView.style.display = 'block';
+        fab.style.display      = 'none';
+        if (distRow) distRow.style.display  = 'none';
+        if (statsRow) statsRow.style.display = 'none';
+        tabDash.style.color = '#6b7280';
+        tabArch.style.color = '#00ff7f';
+        indDash.style.display = 'none';
+        indArch.style.display = 'block';
+        renderArchiveMobile();
+    }
+}
+
+function switchDeskNav(nav) {
+    activeDeskNav = nav;
+    const dashBtn     = document.getElementById('desk-nav-dashboard');
+    const archBtn     = document.getElementById('desk-nav-archive');
+    const createSec   = document.getElementById('desk-create-section');
+    const boardSec    = document.getElementById('desk-board');
+    const archView    = document.getElementById('desk-archive-view');
+    if (nav === 'DASHBOARD') {
+        if (dashBtn) { dashBtn.style.color = '#00ff7f'; dashBtn.querySelector('svg').style.opacity = '1'; }
+        if (archBtn) { archBtn.style.color = '#4b5563'; archBtn.querySelector('svg').style.opacity = '0.6'; }
+        if (createSec) createSec.style.display = '';
+        if (boardSec)  boardSec.style.display  = '';
+        if (archView)  archView.style.display  = 'none';
+    } else {
+        if (dashBtn) { dashBtn.style.color = '#4b5563'; dashBtn.querySelector('svg').style.opacity = '0.6'; }
+        if (archBtn) { archBtn.style.color = '#00ff7f'; archBtn.querySelector('svg').style.opacity = '1'; }
+        if (createSec) createSec.style.display = 'none';
+        if (boardSec)  boardSec.style.display  = 'none';
+        if (archView)  archView.style.display  = 'block';
+        renderArchiveDesktop();
+    }
+}
+
+// 7b. MOBILE SHEET
 function openSheet() {
     document.getElementById('create-sheet-root').classList.add('is-open');
     setTimeout(() => document.getElementById('mob-task-input').focus(), 60);
@@ -1126,7 +1364,7 @@ window.onload = async () => {
     const board = document.getElementById('mobile-board');
     if (board) board.addEventListener('scroll', updateActiveColumn, { passive: true });
 
-    await Promise.all([loadSpaces(), loadTasks()]);
+    await Promise.all([loadSpaces(), loadTasks(), loadArchive()]);
     await migrateLocalStorageOrder();
     syncTaskOrder();
     // Re-persist all column orders so any stale cross-space positions are corrected
