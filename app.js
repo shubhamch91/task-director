@@ -605,6 +605,13 @@ function mobileDragTouchStart(event, taskId) {
         _didScroll = true; // suppress tap
         mobDragLockScroll();
 
+        // Disable native horizontal scroll/snap so the board can't scroll under the drag clone
+        const _board = document.getElementById('mobile-board');
+        if (_board) {
+            _board.style.overflowX = 'hidden';
+            _board.style.scrollSnapType = 'none';
+        }
+
         // Create floating clone — set individual props to preserve card's background/border inline styles
         mobDragClone = card.cloneNode(true);
         mobDragClone.style.position    = 'fixed';
@@ -724,6 +731,13 @@ function mobileDragTouchEnd(event) {
     mobDragUnlockScroll();
     if (mobDragColTimer) { clearTimeout(mobDragColTimer); mobDragColTimer = null; }
     mobDragColCooldown = false;
+
+    // Re-enable native horizontal scroll/snap
+    const _board = document.getElementById('mobile-board');
+    if (_board) {
+        _board.style.overflowX = 'auto';
+        _board.style.scrollSnapType = 'x mandatory';
+    }
 
     // Unlock text selection
     document.body.style.userSelect       = '';
@@ -1094,6 +1108,8 @@ document.addEventListener('touchcancel', () => {
         if (mobDragClone) { mobDragClone.remove(); mobDragClone = null; }
         if (mobDragPlaceholder) { mobDragPlaceholder.remove(); mobDragPlaceholder = null; }
         mobDragId = null;
+        const _board = document.getElementById('mobile-board');
+        if (_board) { _board.style.overflowX = 'auto'; _board.style.scrollSnapType = 'x mandatory'; }
         render();
     }
 });
