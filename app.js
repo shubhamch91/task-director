@@ -748,9 +748,9 @@ function mobileDragTouchMove(event) {
     mobDragClone.style.left = (touch.clientX - mobDragOffsetX) + 'px';
     mobDragClone.style.top  = (touch.clientY - mobDragOffsetY) + 'px';
 
-    // ---- Auto-swipe to adjacent column when finger crosses 50% of screen edge ----
-    const inRightZone = touch.clientX > w * 0.5 && activeColumn < 2;
-    const inLeftZone  = touch.clientX < w * 0.5 && activeColumn > 0;
+    // ---- Auto-swipe to adjacent column when finger crosses near screen edge ----
+    const inRightZone = touch.clientX > w * 0.82 && activeColumn < 2;
+    const inLeftZone  = touch.clientX < w * 0.18 && activeColumn > 0;
     const inNeutral   = touch.clientX >= w * 0.25 && touch.clientX <= w * 0.75;
 
     // Clear cooldown once finger returns to the neutral middle band
