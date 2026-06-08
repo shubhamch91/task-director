@@ -987,8 +987,8 @@ function switchMobileTab(tab) {
         board.style.display    = 'flex';
         archView.style.display = 'none';
         fab.style.display      = 'flex';
-        if (distRow) distRow.style.display  = '';
-        if (statsRow) statsRow.style.display = '';
+        if (distRow) distRow.style.display  = 'flex';
+        if (statsRow) statsRow.style.display = 'flex';
         tabDash.style.color = '#00ff7f';
         tabArch.style.color = '#6b7280';
         indDash.style.display = 'block';
