@@ -35,6 +35,18 @@
         .bg-dots { background-image: radial-gradient(#1a1a1a 1px, transparent 1px); background-size: 20px 20px; }
         .border-m7 { border: 1px solid #222222; }
 
+        /* ===== LOADER ===== */
+        @keyframes breathe {
+          0%, 100% { opacity: 1;    }
+          50%       { opacity: 0.07; }
+        }
+        #fetch-loader { position: fixed; inset: 0; z-index: 9999; background: #0a0a0a; display: flex; align-items: center; justify-content: center; }
+        #fetch-loader-square { width: 12px; height: 12px; background: #00ff7f; flex-shrink: 0; }
+        #fetch-loader-wordmark { position: absolute; bottom: 44px; left: 0; right: 0; text-align: center; color: #374151; font-size: 9px; letter-spacing: 0.22em; font-family: 'JetBrains Mono', monospace; font-weight: 400; }
+        #fetch-loader.is-loading #fetch-loader-square { animation: breathe 2.2s ease-in-out infinite; }
+        #fetch-loader.is-ready  #fetch-loader-square  { animation: none; opacity: 1; transition: none; }
+        #fetch-loader.is-exit   #fetch-loader-square  { animation: none; opacity: 0; transition: opacity 200ms linear; }
+
         /* ===== MOBILE ===== */
         #mobile-board,
         #mobile-board .mobile-page { scrollbar-width: none; }
@@ -87,6 +99,12 @@
     </style>
 </head>
 <body>
+
+<!-- Fetch loader overlay -->
+<div id="fetch-loader" class="is-loading" role="status" aria-label="Loading">
+    <div id="fetch-loader-square"></div>
+    <div id="fetch-loader-wordmark">M7</div>
+</div>
 
 <!-- ===================================================
      DESKTOP VIEW (hidden on mobile)

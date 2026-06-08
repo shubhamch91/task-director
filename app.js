@@ -1373,4 +1373,14 @@ window.onload = async () => {
     }
     render();
     updateActiveColumn();
+
+    // Loader exit sequence: READY (350ms hold) → EXIT (200ms fade) → DONE (unmount)
+    const loader = document.getElementById('fetch-loader');
+    if (loader) {
+        loader.className = 'is-ready';
+        setTimeout(() => {
+            loader.className = 'is-exit';
+            setTimeout(() => loader.remove(), 200);
+        }, 350);
+    }
 };
