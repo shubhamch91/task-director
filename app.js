@@ -177,14 +177,14 @@ function renderDesktop(tasks) {
                 </div>`;
         } else {
             cardInner = `
-                <div class="p-3 flex flex-col h-full justify-between">
+                <div class="p-3 flex flex-col gap-2 h-full">
                     <div class="flex justify-between text-[9px] text-gray-500">
                         <span>#${task.task_number}</span>
                     </div>
                     <div class="flex items-center">
-                        <p class="text-[11px] font-bold tracking-tight leading-snug uppercase truncate w-full" title="${task.description}">${task.description}</p>
+                        <p class="text-[11px] font-bold tracking-tight leading-snug uppercase w-full break-words" title="${task.description}">${task.description}</p>
                     </div>
-                    <div class="flex items-center gap-1.5 h-7">
+                    <div class="flex items-center gap-1.5 h-7 mt-auto">
                         ${isDoneTask
                             ? `<button draggable="false" class="flex-1 text-[9px] h-full uppercase transition-colors" style="background:#2a2a2a;color:#6b7280;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;font-family:inherit;font-weight:700;letter-spacing:0.08em;" onmouseover="this.style.background='#1c2a1c';this.style.color='#e5e7eb'" onmouseout="this.style.background='#2a2a2a';this.style.color='#6b7280'" onclick="archiveTask('${task.id}')">${ARCHIVE_ICON_DESK} ARCHIVE</button>`
                             : `<button draggable="false" class="flex-1 bg-m7-gray text-[9px] h-full uppercase hover:bg-gray-700 transition-colors" onclick="moveTask('${task.id}', '${task.status}')">Move</button>`
